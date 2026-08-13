@@ -1,0 +1,2536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>循迹者 · 第六章 湖南省博物馆</title>
+<style>
+:root{
+  --paper:#E8DFCC; --paper-dim:#C9BDA4; --ink:#241E18; --ink-soft:#5C5044;
+  --vermilion:#9B3A2E; --gold:#C8A24A; --desk:#1A130E;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:#0B0806;
+  font-family:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC",serif;
+  color:var(--paper);
+  -webkit-font-smoothing:antialiased;
+  user-select:none;cursor:default;
+}
+img{display:block;max-width:100%}
+
+/* ---------- 舞台：严格 16:9，热区百分比与背景图一一对应 ---------- */
+#stage{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(100vw, calc(100vh * 16 / 9));
+  height:min(100vh, calc(100vw * 9 / 16));
+  overflow:hidden;background:#0B0806;
+}
+#bg,#bg2{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  transition:opacity 1.1s ease}
+#bg2{opacity:0}
+
+/* 点灯瞬间从灯芯位置扩散的一层暖光 */
+#bloom{
+  position:absolute;left:34.5%;top:52%;width:0;height:0;pointer-events:none;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle, rgba(255,206,120,.22) 0%, rgba(255,190,90,.08) 42%, transparent 70%);
+  transition:width 1.8s cubic-bezier(.22,.9,.3,1), height 1.8s cubic-bezier(.22,.9,.3,1), opacity 1.2s;
+  opacity:0;
+}
+body.lit #bloom{width:150%;height:230%;opacity:1}
+#vignette{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 74% at 45% 55%, transparent 34%, rgba(8,5,3,.62) 100%);
+  transition:opacity 1.6s;opacity:1}
+body.lit #vignette{opacity:.5}
+/* 幕布：进正片之前一直盖着底层，避免过场之间闪出场景图 */
+#curtain{position:absolute;inset:0;background:#060403;pointer-events:none;
+  opacity:1;transition:opacity 1s ease}
+body.inscene #curtain{opacity:0}
+#grain{position:absolute;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>")}
+
+/* ---------- 热区 ---------- */
+#hot{position:absolute;inset:0;transition:opacity .45s ease}
+.hs{position:absolute;cursor:pointer;border-radius:8px;transition:background .3s}
+.hs:hover{background:radial-gradient(ellipse at center,
+  rgba(255,214,140,.16) 0%, rgba(255,205,120,.06) 48%, transparent 72%)}
+.hs.target::after{
+  content:"";position:absolute;inset:-6%;border-radius:50%;
+  background:radial-gradient(ellipse at center,
+    rgba(255,201,112,.30) 0%, rgba(255,190,95,.12) 42%, transparent 70%);
+  animation:breathe 2.6s ease-in-out infinite;pointer-events:none;
+}
+@keyframes breathe{0%,100%{opacity:.35}50%{opacity:.95}}
+body.debug .hs{outline:1px dashed rgba(255,90,90,.9);background:rgba(255,60,60,.10)}
+body.debug .hs::before{content:attr(data-label);position:absolute;left:4px;top:2px;
+  font-size:13px;color:#ffb3b3;letter-spacing:.1em}
+body.busy #hot{pointer-events:none;opacity:0}
+body.busy #tip{opacity:0}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;pointer-events:none;z-index:30;
+  font-size:clamp(13px,1.75vh,19px);letter-spacing:.16em}
+#hud .tl{position:absolute;left:2.4%;top:3.4%;color:var(--paper-dim);text-shadow:0 2px 10px #000}
+#hud .tr{position:absolute;right:2.4%;top:3.4%;color:var(--paper-dim);text-shadow:0 2px 10px #000}
+#hud .tr b{color:var(--gold);font-weight:400}
+.hudbtn{
+  position:absolute;pointer-events:auto;cursor:pointer;
+  padding:.72em 1.35em;border:1px solid rgba(232,223,204,.34);
+  background:rgba(16,11,8,.55);backdrop-filter:blur(3px);
+  color:var(--paper-dim);letter-spacing:.2em;font-family:inherit;
+  font-size:clamp(13px,1.7vh,17px);
+  opacity:1;transition:opacity .45s,border-color .2s,color .2s,background .2s;
+}
+.hudbtn:hover{border-color:var(--gold);color:var(--gold);background:rgba(16,11,8,.8)}
+body.busy .hudbtn{opacity:0;pointer-events:none}
+#btnBoard{right:2.4%;bottom:3.6%}
+#btnSave{right:2.4%;bottom:calc(3.6% + 3.6em)}
+#btnSound{right:2.4%;bottom:calc(3.6% + 7.2em)}
+#btnMenu{left:2.4%;bottom:3.6%}
+
+#tip{position:absolute;left:50%;bottom:6.5%;transform:translateX(-50%);
+  color:rgba(232,223,204,.75);font-size:clamp(15px,2.2vh,22px);letter-spacing:.2em;
+  text-shadow:0 2px 12px #000;opacity:0;transition:opacity .6s;pointer-events:none;z-index:28}
+#tip.on{opacity:1}
+
+/* 存档提示 */
+#toast{position:absolute;left:50%;top:12%;transform:translateX(-50%);
+  padding:.7em 1.6em;background:rgba(12,8,6,.86);border:1px solid rgba(200,162,74,.5);
+  color:var(--gold);letter-spacing:.24em;font-size:clamp(13px,1.8vh,18px);
+  opacity:0;transition:opacity .5s;pointer-events:none;z-index:60}
+#toast.on{opacity:1}
+
+/* ---------- 旁白 / OS ---------- */
+#os{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  max-width:74%;text-align:center;z-index:34;pointer-events:none;
+  font-size:clamp(19px,3.1vh,33px);line-height:1.95;letter-spacing:.14em;
+  color:#F2EAD8;text-shadow:0 3px 20px rgba(0,0,0,.98);
+  opacity:0;transition:opacity .8s}
+#os.on{opacity:1}
+
+/* ---------- 对话框 ---------- */
+/* 整屏都能点继续。底下那层渐变只是背景，点哪儿都算 */
+#dlg{position:absolute;inset:0;z-index:36;
+  padding:clamp(18px,5vh,54px) clamp(18px,5vw,92px) clamp(32px,7.6vh,78px);
+  background:linear-gradient(180deg, transparent 0%, transparent 44%,
+    rgba(10,7,5,.55) 55%, rgba(9,6,4,.9) 70%, rgba(8,5,4,.97) 100%);
+  display:none;cursor:pointer;flex-direction:column;justify-content:flex-end}
+#dlg.on{display:flex;animation:dlgIn .28s ease both}
+@keyframes dlgIn{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+/* 框是死的：头像位、名字位、正文三行的位置都固定，换谁说话都不动 */
+#dlg .row{display:flex;align-items:flex-start;gap:clamp(14px,2.2vw,30px);
+  max-width:1220px;margin:0 auto;width:100%}
+#dlg .av{width:clamp(64px,10.5vh,120px);height:clamp(64px,10.5vh,120px);border-radius:50%;
+  object-fit:cover;object-position:50% 22%;flex:0 0 auto;
+  border:1px solid rgba(200,162,74,.5);box-shadow:0 6px 24px rgba(0,0,0,.7);
+  background:#EFE9DC;visibility:hidden}
+/* 头像位一直占着，不然没头像那几句字会整体左移，框跟着变形 */
+#dlg.hasav .av{visibility:visible}
+#dlg .body{flex:1;min-width:0}
+#dlg .who{color:var(--gold);letter-spacing:.3em;font-size:clamp(15px,2.2vh,22px);margin-bottom:.55em}
+#dlg .who i{font-style:normal;color:var(--paper-dim);opacity:.72;letter-spacing:.12em;font-size:.86em}
+#dlg .txt{font-size:clamp(19px,2.95vh,32px);line-height:1.85;letter-spacing:.06em;
+  height:5.55em;text-shadow:0 2px 14px rgba(0,0,0,.85)}
+#dlg .txt em{font-style:normal;color:var(--gold)}
+/* 外语台词底下的中文字幕，比正文小一号、暗一点 */
+#dlg .txt .sub{display:block;margin-top:.3em;font-size:.8em;letter-spacing:.1em;
+  color:rgba(232,223,204,.6)}
+#dlg .next{position:absolute;right:clamp(18px,5vw,92px);bottom:clamp(12px,2.8vh,28px);
+  color:var(--gold);opacity:.75;font-size:clamp(13px,1.8vh,18px);letter-spacing:.2em;
+  animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:.9}}
+#dlg.os .who{visibility:hidden}
+#dlg.os .txt{color:#DED4C0;font-style:italic;opacity:.95}
+
+/* ---------- 道具特写 ---------- */
+#cu{position:absolute;inset:0;z-index:40;display:none;
+  align-items:center;justify-content:center;flex-direction:column;
+  background:rgba(8,5,3,.9);backdrop-filter:blur(2px);cursor:pointer}
+#cu.on{display:flex;animation:fade .5s both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+#cuWrap{position:relative;height:56vh;aspect-ratio:1;max-width:84vw;
+  transform:scale(.92);animation:pop .6s cubic-bezier(.2,.9,.3,1) both}
+@keyframes pop{to{transform:scale(1)}}
+#cuWrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  transition:opacity 1.1s ease}
+#cuB{opacity:0}
+#cu.two #cuB{opacity:1}
+#cuTitle{margin-top:2.6vh;color:var(--gold);letter-spacing:.34em;font-size:clamp(17px,2.5vh,25px)}
+#cuCap{margin-top:1.2vh;max-width:40em;text-align:center;padding:0 6vw;
+  color:var(--paper-dim);font-size:clamp(16px,2.4vh,24px);line-height:1.9;letter-spacing:.08em;
+  opacity:0;transition:opacity .8s}
+#cuCap.on{opacity:1}
+#cuHint{margin-top:2.2vh;color:rgba(232,223,204,.45);letter-spacing:.24em;
+  font-size:clamp(13px,1.8vh,17px);animation:blink 1.6s infinite}
+
+/* ---------- 展信：信纸徐徐展开，正文逐行浮现 ---------- */
+#lt{position:absolute;inset:0;z-index:46;display:none;
+  align-items:center;justify-content:center;background:rgba(6,4,3,.94);cursor:pointer}
+#lt.on{display:flex;animation:fade .6s both}
+#ltWrap{position:relative;width:min(88%,1080px);aspect-ratio:16/9;max-height:86%;
+  display:flex;align-items:center;justify-content:center}
+#ltPaper{position:absolute;inset:0;transform:scaleY(.04);transform-origin:50% 50%;
+  opacity:.25;transition:transform 2.1s cubic-bezier(.16,.8,.24,1), opacity 1.4s ease}
+#lt.open #ltPaper{transform:scaleY(1);opacity:1}
+#ltPaper img{width:100%;height:100%;object-fit:cover;
+  box-shadow:0 24px 70px rgba(0,0,0,.8)}
+#ltPaper::after{content:"";position:absolute;inset:0;background:rgba(22,15,9,.70)}
+#ltBody{position:relative;z-index:2;width:100%;padding:clamp(20px,5vh,54px) clamp(24px,6vw,86px);
+  text-align:center;opacity:0;transition:opacity .8s}
+#lt.open #ltBody{opacity:1}
+#ltTitle{color:var(--gold);letter-spacing:.34em;font-size:clamp(16px,2.3vh,23px);margin-bottom:.4em}
+#ltDate{color:rgba(232,223,204,.5);letter-spacing:.2em;font-size:clamp(13px,1.8vh,17px);
+  margin-bottom:clamp(14px,3vh,30px)}
+#ltLines p{font-size:clamp(18px,2.8vh,30px);line-height:2.05;letter-spacing:.08em;
+  color:#F2EAD8;margin:.28em 0;opacity:0;transform:translateY(8px);
+  transition:opacity 1s, transform 1s;text-shadow:0 2px 14px rgba(0,0,0,.9)}
+#ltLines p.on{opacity:1;transform:none}
+#ltLines p.key{color:var(--gold);font-size:clamp(20px,3.1vh,34px);
+  text-shadow:0 0 26px rgba(200,162,74,.5), 0 2px 14px rgba(0,0,0,.9)}
+#ltSign{margin-top:clamp(14px,3vh,30px);text-align:right;padding-right:clamp(10px,4vw,60px);
+  color:var(--paper-dim);font-size:clamp(16px,2.4vh,25px);letter-spacing:.2em;
+  opacity:0;transition:opacity 1s}
+#ltSign.on{opacity:1}
+#ltHint{position:absolute;left:0;right:0;bottom:4%;pointer-events:none;text-align:center;z-index:3;
+  color:rgba(232,223,204,.45);letter-spacing:.24em;font-size:clamp(13px,1.8vh,17px);
+  opacity:0;transition:opacity .6s;animation:blink 1.6s infinite}
+#ltHint.on{opacity:1}
+
+/* ---------- 开场：世界观引入 ---------- */
+#world{position:absolute;inset:0;z-index:54;display:none;
+  align-items:center;justify-content:center;background:#060403;cursor:pointer}
+#world.on{display:flex}
+#worldBox{text-align:center;padding:0 10vw;max-width:100%}
+#worldBox p{font-size:clamp(21px,3.5vh,38px);line-height:2.15;letter-spacing:.22em;
+  color:#EFE6D2;margin:.28em 0;opacity:0;transform:translateY(12px);
+  transition:opacity 1.1s ease, transform 1.1s ease;text-shadow:0 3px 24px rgba(0,0,0,.9)}
+#worldBox p.on{opacity:1;transform:none}
+#worldBox p.out{opacity:0;transform:translateY(-10px);transition:opacity .7s, transform .7s}
+/* 随进度延伸的一道细光，就是那条迹 */
+#worldTrace{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);
+  width:0;height:1px;background:linear-gradient(90deg,
+    transparent, rgba(200,162,74,.75), transparent);
+  transition:width 1.6s cubic-bezier(.4,.8,.4,1)}
+#worldSkip{position:absolute;right:3.4%;bottom:5.6%;padding:.7em 1.5em;
+  border:1px solid rgba(232,223,204,.3);background:rgba(12,8,6,.5);
+  color:rgba(232,223,204,.66);font-family:inherit;letter-spacing:.22em;
+  font-size:clamp(13px,1.7vh,17px);cursor:pointer;transition:.2s}
+#worldSkip:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ---------- 时间线长卷 ---------- */
+#unf{position:absolute;inset:0;z-index:47;display:none;
+  align-items:center;justify-content:center;flex-direction:column;
+  background:#070504;cursor:pointer}
+#unf.on{display:flex;animation:fade .6s both}
+#unfWrap{position:relative;width:94%;max-width:1500px;
+  transform:scaleX(.02);transform-origin:50% 50%;
+  transition:transform 3s cubic-bezier(.16,.82,.24,1)}
+#unf.open #unfWrap{transform:scaleX(1)}
+#unfWrap::before,#unfWrap::after{content:"";position:absolute;top:0;bottom:0;width:5%;
+  pointer-events:none;z-index:2}
+#unfWrap::before{left:0;background:linear-gradient(90deg,rgba(6,4,3,.9),transparent)}
+#unfWrap::after{right:0;background:linear-gradient(270deg,rgba(6,4,3,.9),transparent)}
+#unfWrap img{width:100%;height:auto;display:block;
+  filter:brightness(1.3) saturate(1.1) contrast(1.05);
+  box-shadow:0 0 110px 40px rgba(196,150,86,.2), 0 20px 70px rgba(0,0,0,.85)}
+#unfTitle{margin-top:3vh;color:var(--gold);letter-spacing:.34em;
+  font-size:clamp(17px,2.5vh,25px);opacity:0;transition:opacity 1s}
+#unfCap{margin-top:1.2vh;max-width:44em;text-align:center;padding:0 6vw;
+  color:var(--paper-dim);font-size:clamp(15px,2.2vh,21px);line-height:2;letter-spacing:.08em;
+  opacity:0;transition:opacity 1s}
+#unfHint{margin-top:2.4vh;color:rgba(232,223,204,.45);letter-spacing:.24em;
+  font-size:clamp(13px,1.8vh,17px);opacity:0;transition:opacity .8s;animation:blink 1.6s infinite}
+#unf.done #unfTitle,#unf.done #unfCap,#unf.done #unfHint{opacity:1}
+#unfLine{display:none;margin-top:2vh;padding:0 4vw;max-width:96%;
+  flex-wrap:wrap;justify-content:center;align-items:center;gap:.6vh 1.1vw}
+#unfLine.on{display:flex}
+#unfLine .seg{opacity:0;transform:translateY(6px);transition:opacity .7s,transform .7s;
+  text-align:center;white-space:nowrap}
+#unfLine .seg.lit{opacity:1;transform:none}
+#unfLine .seg .y{display:block;color:var(--gold);letter-spacing:.16em;
+  font-size:clamp(13px,1.9vh,18px)}
+#unfLine .seg .w{display:block;color:var(--paper-dim);letter-spacing:.06em;
+  font-size:clamp(12px,1.7vh,16px);margin-top:.3vh}
+#unfLine .arw{opacity:0;transition:opacity .7s;color:rgba(200,162,74,.45);
+  font-size:clamp(12px,1.7vh,16px)}
+#unfLine .arw.lit{opacity:1}
+
+
+/* ===================== 启动层：主界面右侧竖排入口 ===================== */
+#menuRail{position:absolute;right:clamp(26px,4vw,72px);top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:clamp(18px,3.2vh,36px);z-index:3}
+#menuRail button{background:none;border:none;cursor:pointer;color:#DCD0B6;
+  font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:.8vh;
+  letter-spacing:.2em;font-size:clamp(12px,1.8vh,17px);transition:color .25s;
+  text-shadow:0 2px 10px rgba(0,0,0,.95),0 0 22px rgba(0,0,0,.8)}
+#menuRail button:hover{color:var(--gold)}
+#menuRail .ic{width:clamp(38px,5.6vh,60px);height:clamp(38px,5.6vh,60px);border-radius:50%;
+  border:1px solid rgba(200,162,74,.65);display:flex;align-items:center;justify-content:center;
+  font-size:clamp(17px,2.5vh,26px);transition:border-color .25s,background .25s;
+  background:rgba(10,7,5,.55);box-shadow:0 2px 18px rgba(0,0,0,.75)}
+#menuRail button:hover .ic{border-color:var(--gold);background:rgba(200,162,74,.1)}
+#menu .enter{display:block;margin:2.6vh auto 0;color:var(--gold);letter-spacing:.36em;
+  font-size:clamp(16px,2.6vh,25px);cursor:pointer;background:none;border:none;font-family:inherit;
+  animation:breathe 3.4s ease-in-out infinite}
+#menu .enter:hover{color:#EBCB7C}
+#menu .enter::before,#menu .enter::after{color:rgba(200,162,74,.55);font-size:.7em}
+#menu .enter::before{content:"◈ "}
+#menu .enter::after{content:" ◈"}
+@keyframes breathe{0%,100%{opacity:.75}50%{opacity:1}}
+#menu .chip{display:inline-block;padding:.5vh 1.4em;letter-spacing:.24em;
+  border:1px solid rgba(200,162,74,.35);background:rgba(0,0,0,.25);
+  color:rgba(232,223,204,.72);font-size:clamp(12px,1.7vh,16px)}
+#menu .resume{display:block;margin:1.6vh auto 0;background:none;border:none;cursor:pointer;
+  font-family:inherit;color:rgba(232,223,204,.6);letter-spacing:.2em;
+  font-size:clamp(12px,1.7vh,16px);border-bottom:1px solid rgba(232,223,204,.25)}
+#menu .resume:hover{color:var(--gold);border-color:var(--gold)}
+#menu .resume.hide{display:none}
+
+
+/* ---------- 主视觉整图模式：按钮直接盖在画好的位置上 ---------- */
+#menu.kv .veil{display:none}
+#menu.kv .box h1,#menu.kv .box h2,#menu.kv .box .line{display:none}
+/* 主视觉上那块章节牌是画死在图里的，用一块同色同形的盖上去，文字才能跟着数据走 */
+#menu.kv .box .chip{display:none}   /* 案号牌已经画在新底图上了 */
+#menu.kv .box .chip--old{position:absolute;left:43.6%;top:65.4%;width:13.2%;height:4.9%;
+  display:flex;align-items:center;justify-content:center;padding:0;border:none;border-radius:999px;
+  background:linear-gradient(100deg,rgba(88,64,37,.96) 0%,rgba(112,86,54,.95) 52%,rgba(132,106,72,.94) 100%);
+  box-shadow:0 0 10px 6px rgba(150,125,88,.35),inset 0 1px 0 rgba(255,240,210,.16);
+  color:#EFE2C6;letter-spacing:.2em;font-size:clamp(11px,1.72vh,17px);white-space:nowrap}
+#menu.kv .box .chip::before{content:"◈";margin-right:.7em;color:rgba(239,226,198,.7);font-size:.62em}
+#menu.kv .box .chip::after{content:"◈";margin-left:.7em;color:rgba(239,226,198,.7);font-size:.62em}
+#menu.kv .box{position:absolute;inset:0;padding:0}
+#menu.kv .enter{position:absolute;left:37.5%;top:70.5%;width:25%;height:8%;
+  margin:0;color:transparent;text-shadow:none;animation:none}
+#menu.kv .enter::before,#menu.kv .enter::after{content:none}
+#menu.kv .enter:hover{background:rgba(200,162,74,.14)}
+#menu.kv .resume{position:absolute;left:41%;top:79.5%;width:18%;margin:0;
+  color:rgba(238,228,206,.86);border-color:rgba(238,228,206,.35);letter-spacing:.24em;
+  text-shadow:0 2px 10px rgba(0,0,0,.95),0 0 20px rgba(0,0,0,.8)}
+#menu.kv .resume:hover{color:var(--gold);border-color:var(--gold)}
+#menu.kv #menuRail{position:static;transform:none}
+#menu.kv #menuRail button{position:absolute;right:1.5%;width:7%;height:10%;
+  color:transparent;text-shadow:none}
+#menu.kv #menuRail .ic{display:none}
+#menu.kv #menuRail button:hover{background:rgba(200,162,74,.14);border-radius:6px}
+#menu.kv #mArchive{top:8%}      /* 创意说明 */
+#menu.kv #mAbout{top:19%}       /* 玩法说明 */
+#menu.kv #mSetting{top:29.5%}   /* 设置 */
+
+/* ===================== 文物图鉴 ===================== */
+#codex{position:absolute;inset:0;z-index:72;display:none;
+  background:#DCCEB0 url("") center/cover;color:#3A2E22;
+  font-size:clamp(12px,1.6vh,16px);overflow:hidden}
+#codex.on{display:block;animation:fade .45s both}
+#codex .paper{position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:
+    radial-gradient(120% 80% at 50% 0%,rgba(255,255,255,.35),transparent 60%),
+    radial-gradient(100% 90% at 50% 110%,rgba(90,64,34,.35),transparent 60%)}
+#codex .frame{position:absolute;inset:clamp(10px,1.6vh,20px);pointer-events:none;
+  border:1px solid rgba(90,64,34,.45)}
+#codex .frame::after{content:"";position:absolute;inset:clamp(4px,.7vh,8px);
+  border:1px solid rgba(90,64,34,.25)}
+#cxWrap{position:absolute;inset:clamp(24px,3.4vh,44px);display:flex;flex-direction:column}
+
+#cxTop{position:relative;text-align:center;padding-bottom:1.2vh;flex:none}
+#cxTop h2{font-size:clamp(20px,3.4vh,36px);letter-spacing:.3em;color:#3A2E22;font-weight:600}
+#cxTop h2::before,#cxTop h2::after{content:"◈";color:rgba(120,86,44,.55);
+  font-size:.45em;vertical-align:.5em;margin:0 .7em}
+#cxTop .sub{margin-top:.5vh;letter-spacing:.26em;color:rgba(58,46,34,.6);
+  font-size:clamp(11px,1.6vh,15px)}
+#cxBack,#cxBag{position:absolute;top:0;background:none;border:none;cursor:pointer;
+  font-family:inherit;color:#4A3A2A;letter-spacing:.16em;font-size:clamp(11px,1.6vh,15px);
+  padding:.6vh 1.1em;border:1px solid rgba(90,64,34,.45);transition:.25s;
+  display:flex;align-items:center;gap:.5em}
+#cxBack{left:0}
+#cxBag{right:0;border:none;flex-direction:column;gap:.3vh}
+#cxBack:hover,#cxBag:hover{color:#1F1710;border-color:rgba(90,64,34,.9)}
+#cxBag .ic{font-size:clamp(17px,2.5vh,24px)}
+
+#cxBody{flex:1;display:flex;gap:clamp(14px,2vw,30px);min-height:0;margin-top:1.2vh}
+#cxLeft{flex:1.15;display:flex;flex-direction:column;min-width:0;
+  border:1px solid rgba(90,64,34,.35);padding:clamp(10px,1.6vh,20px);background:rgba(255,250,238,.28)}
+#cxTabs{display:flex;gap:.5em;flex-wrap:wrap;flex:none}
+#cxTabs button{font-family:inherit;cursor:pointer;letter-spacing:.14em;
+  font-size:clamp(11px,1.5vh,14px);padding:.55vh 1.05em;color:#4A3A2A;
+  border:1px solid rgba(90,64,34,.4);background:rgba(255,250,238,.35);transition:.2s}
+#cxTabs button:hover{background:rgba(255,250,238,.75)}
+#cxTabs button.on{background:#4A3A2A;color:#EFE4CC;border-color:#4A3A2A}
+#cxGrid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);
+  gap:clamp(8px,1.3vw,18px);margin-top:1.4vh;align-content:start;overflow:auto;padding-right:.3em}
+/* 卡片按新稿：切角、双线框、编号是个圆牌 */
+.cxCard{position:relative;cursor:pointer;border:1px solid rgba(90,64,34,.4);
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+  background:rgba(255,250,238,.45);padding:clamp(6px,1vh,12px);
+  display:flex;flex-direction:column;align-items:center;gap:.7vh;transition:.22s}
+.cxCard:hover{background:rgba(255,250,238,.85);border-color:rgba(90,64,34,.8)}
+.cxCard.on{border-color:#B8912F;box-shadow:0 0 0 1px #B8912F,0 4px 18px rgba(120,86,44,.3);
+  background:rgba(255,250,238,.95)}
+.cxCard::before{content:"";position:absolute;inset:clamp(3px,.55vh,6px);pointer-events:none;
+  border:1px solid rgba(90,64,34,.22);
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)}
+.cxCard .no{position:absolute;left:clamp(5px,.8vh,9px);top:clamp(5px,.8vh,9px);
+  width:1.7em;height:1.7em;border-radius:50%;border:1px solid rgba(90,64,34,.6);
+  display:flex;align-items:center;justify-content:center;font-size:.82em;color:#4A3A2A;
+  background:rgba(255,250,238,.8)}
+.cxCard .th{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  overflow:hidden}
+.cxCard .th img{max-width:100%;max-height:100%;object-fit:contain}
+.cxCard .th .ph{color:rgba(90,64,34,.4);font-size:.8em;letter-spacing:.1em;text-align:center;
+  border:1px dashed rgba(90,64,34,.35);padding:1.4em .6em;width:100%}
+.cxCard .nm{font-size:clamp(11px,1.5vh,14px);color:#3A2E22;text-align:center;line-height:1.4}
+#cxPager{flex:none;display:flex;align-items:center;justify-content:center;gap:1.6em;
+  margin-top:1.2vh;color:rgba(58,46,34,.75);letter-spacing:.16em}
+#cxPager button:disabled{opacity:.32;cursor:default}
+#cxPager button{font-family:inherit;background:none;border:1px solid rgba(90,64,34,.4);
+  cursor:pointer;color:#4A3A2A;padding:.2vh .8em}
+
+#cxRight{flex:1;border:1px solid rgba(90,64,34,.35);background:rgba(255,250,238,.28);
+  padding:clamp(12px,1.8vh,24px);display:flex;flex-direction:column;min-width:0;overflow:auto}
+#cxHero{flex:none;height:clamp(120px,26vh,260px);display:flex;align-items:center;justify-content:center}
+#cxHero img{max-width:100%;max-height:100%;object-fit:contain}
+#cxHero .ph{color:rgba(90,64,34,.4);letter-spacing:.16em;border:1px dashed rgba(90,64,34,.35);
+  padding:3em 2em;text-align:center}
+#cxName{flex:none;text-align:center;font-size:clamp(18px,3vh,32px);letter-spacing:.16em;
+  color:#2E241A;margin-top:1vh}
+#cxMeta{flex:none;display:flex;justify-content:center;gap:2.4em;margin-top:1vh;
+  padding-bottom:1.2vh;border-bottom:1px solid rgba(90,64,34,.3);
+  color:#4A3A2A;letter-spacing:.1em;font-size:clamp(11px,1.6vh,15px)}
+#cxMeta span::before{content:"◆ ";color:rgba(120,86,44,.6);font-size:.8em}
+/* 名号和正文之间一实一虚两道线，按新稿 */
+#cxMeta{padding-bottom:1.2vh;border-bottom:1px dashed rgba(120,86,44,.45);
+  margin-left:clamp(10px,2vw,34px);margin-right:clamp(10px,2vw,34px)}
+#cxName{padding-bottom:1vh;border-bottom:1px solid rgba(120,86,44,.45);
+  margin-left:clamp(10px,2vw,34px);margin-right:clamp(10px,2vw,34px)}
+#cxMeta span.todo{color:#9B3A2E}
+.cxH{margin-top:1.6vh;color:#7A5A2C;letter-spacing:.22em;font-size:clamp(11px,1.6vh,15px);
+  flex:none;display:flex;align-items:center;gap:.6em}
+.cxH::before{content:"❖";font-size:.85em}
+.cxH::after{content:"";flex:1;height:1px;background:rgba(120,86,44,.3)}
+#cxDesc{flex:none;margin-top:.9vh;line-height:2;color:#3A2E22;
+  font-size:clamp(11px,1.65vh,16px);white-space:pre-line}
+#cxFlow{flex:none;margin-top:auto;border:1px solid rgba(90,64,34,.35);
+  background:rgba(255,250,238,.45);padding:clamp(14px,2.2vh,26px);position:relative}
+#cxFlow .ttl{color:#7A5A2C;letter-spacing:.2em;font-size:clamp(11px,1.5vh,14px);margin-bottom:1vh}
+#cxFlow .ttl::before{content:"⛩ ";font-size:1.1em}
+#cxSteps{display:flex;align-items:center;justify-content:center;gap:1.4em;flex-wrap:wrap;
+  color:#3A2E22;font-size:clamp(10px,1.5vh,14px);line-height:1.8;text-align:center;
+  white-space:pre-line}
+#cxSteps .arw{color:rgba(120,86,44,.5)}
+#cxSteps .todo{color:#9B3A2E;opacity:.8}
+#cxDesc.todo{color:#9B3A2E;opacity:.85}
+#cxStamp{position:absolute;right:clamp(10px,1.5vw,22px);top:50%;transform:translateY(-50%) rotate(-12deg);
+  width:clamp(44px,7.4vh,78px);height:clamp(44px,7.4vh,78px);border-radius:50%;
+  border:2px solid rgba(155,58,46,.75);color:rgba(155,58,46,.85);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:clamp(10px,1.5vh,14px);letter-spacing:.06em;line-height:1.25;padding:.3em}
+#cxStamp.pending{border-color:rgba(120,86,44,.6);color:rgba(120,86,44,.75)}
+
+
+/* ---------- PV：一镜一张图，缓慢推拉 ---------- */
+#pv{position:absolute;inset:0;z-index:45;display:none;background:#05070A;cursor:pointer}
+#pv.on{display:block}
+#pvImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity 1.4s ease, transform 9s linear}
+#pv.show #pvImg{opacity:1}
+#pvVeil{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg, rgba(4,6,9,.5) 0%, transparent 26%,
+    transparent 52%, rgba(4,6,9,.86) 100%)}
+#pvLine{position:absolute;left:8%;right:8%;bottom:13%;pointer-events:none;text-align:center;z-index:3;
+  font-size:clamp(18px,2.8vh,30px);line-height:2.05;letter-spacing:.14em;
+  color:#EDE4D2;text-shadow:0 3px 22px rgba(0,0,0,.98);
+  opacity:0;transition:opacity 1.2s}
+#pvLine.on{opacity:1}
+/* 歌词自成一层，贴着画面最底下走，整章都在，不跟旁白和信纸抢位置 */
+#lyric{position:absolute;left:8%;right:8%;top:9.5%;pointer-events:none;text-align:center;z-index:50;
+  font-size:clamp(13px,1.9vh,21px);line-height:1.8;letter-spacing:.3em;
+  color:rgba(226,214,190,.66);text-shadow:0 3px 20px rgba(0,0,0,.98);
+  opacity:0;transition:opacity .8s}
+#lyric.on{opacity:1}
+#pvLine p{margin:.2em 0}
+#pvSkip{position:absolute;right:3.4%;bottom:5.6%;z-index:4;padding:.7em 1.5em;
+  border:1px solid rgba(232,223,204,.28);background:rgba(8,10,14,.5);
+  color:rgba(232,223,204,.6);font-family:inherit;letter-spacing:.22em;
+  font-size:clamp(13px,1.7vh,17px);cursor:pointer;transition:.2s}
+#pvSkip:hover{border-color:var(--gold);color:var(--gold)}
+
+
+/* ---------- 结局 ---------- */
+#fin{position:absolute;inset:0;z-index:58;display:none;background:#060403}
+#fin.on{display:block}
+#finBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity 2s ease}
+#fin.show #finBg{opacity:1}
+#finVeil{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(6,4,3,.55) 0%,rgba(6,4,3,.2) 40%,rgba(6,4,3,.9) 100%)}
+#finBox{position:absolute;left:0;right:0;bottom:0;top:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:6vh 8vw;text-align:center;z-index:3;pointer-events:none}
+#finOpts,.finOpt,#finOut,#finOut .mbtn{pointer-events:auto}
+#finQ{color:#F0E6D2;font-size:clamp(18px,2.7vh,28px);letter-spacing:.16em;
+  margin-bottom:3vh;opacity:0;transition:opacity 1s;text-shadow:0 3px 20px rgba(0,0,0,.95)}
+#finQ.on{opacity:1}
+.finOpt{display:block;width:min(560px,86%);margin:.7vh auto;padding:1em 1.6em;
+  border:1px solid rgba(232,223,204,.28);background:rgba(12,8,6,.55);
+  color:var(--paper);font-family:inherit;font-size:clamp(15px,2.1vh,20px);
+  letter-spacing:.1em;cursor:pointer;transition:.22s;opacity:0}
+.finOpt.on{opacity:1}
+.finOpt:hover{border-color:var(--gold);color:var(--gold);background:rgba(20,14,9,.8)}
+#finText{max-width:34em;color:#EFE6D2;font-size:clamp(17px,2.5vh,26px);
+  line-height:2.15;letter-spacing:.16em;text-shadow:0 3px 20px rgba(0,0,0,.95)}
+#finText p{margin:.35em 0;opacity:0;transform:translateY(10px);
+  transition:opacity 1.2s, transform 1.2s}
+#finText p.on{opacity:1;transform:none}
+#finLabel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(38vh,340px);aspect-ratio:1;opacity:0;transition:opacity 1.6s;z-index:4;
+  pointer-events:none}
+#finLabel.on{opacity:1}
+#finLabel img{width:100%;height:100%;object-fit:contain;
+  -webkit-mask-image:radial-gradient(ellipse 62% 58% at 50% 50%, #000 45%, transparent 78%);
+  mask-image:radial-gradient(ellipse 62% 58% at 50% 50%, #000 45%, transparent 78%)}
+#finOut{position:absolute;left:0;right:0;bottom:6%;z-index:6;text-align:center;
+  opacity:0;transition:opacity 1.2s}
+#finOut.on{opacity:1}
+#finOut .mbtn{margin:0 .4em}
+#finLabelCap{position:absolute;left:0;right:0;top:calc(50% + min(20vh,180px));
+  text-align:center;color:var(--gold);letter-spacing:.3em;pointer-events:none;
+  font-size:clamp(16px,2.3vh,22px);opacity:0;transition:opacity 1.4s;z-index:5}
+#finLabelCap.on{opacity:1}
+
+/* ---------- 穿越：2026 库房实景 ---------- */
+#cross{position:absolute;inset:0;z-index:52;display:none;background:#070504;overflow:hidden}
+#cross.on{display:block}
+#crossBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity 2s ease, transform 2.4s cubic-bezier(.3,.8,.4,1)}
+#cross.lit #crossBg{opacity:1}
+#cross.zoom #crossBg{transform:scale(1.16)}
+#crossVeil{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg, rgba(6,4,3,.88) 0%, rgba(6,4,3,.62) 26%,
+    rgba(6,4,3,.14) 46%, rgba(6,4,3,.10) 74%, rgba(6,4,3,.55) 100%)}
+#crossLines{position:absolute;left:0;right:0;top:8%;text-align:center;padding:0 8vw}
+#crossLines p{font-size:clamp(20px,3.3vh,36px);line-height:2.1;letter-spacing:.2em;
+  color:#EFE6D2;margin:.3em 0;opacity:0;transform:translateY(10px);
+  text-shadow:0 3px 20px rgba(0,0,0,.98);transition:opacity 1s, transform 1s}
+#crossLines p.on{opacity:1;transform:none}
+/* 对准库房图里那卷帛书 */
+#relicHot{position:absolute;cursor:pointer;opacity:0;transition:opacity 1.2s}
+#relicHot.on{opacity:1}
+#relicHot::after{content:"";position:absolute;inset:-26%;border-radius:50%;
+  background:radial-gradient(ellipse at center,
+    rgba(255,214,132,.46) 0%, rgba(255,196,100,.20) 42%, transparent 70%);
+  mix-blend-mode:screen;
+  animation:breathe 2.8s ease-in-out infinite;pointer-events:none}
+#relicHot:hover::after{animation-play-state:paused;opacity:1}
+#relicTip{position:absolute;left:0;right:0;bottom:7%;pointer-events:none;text-align:center;
+  color:rgba(240,232,214,.72);letter-spacing:.3em;font-size:clamp(15px,2.1vh,20px);
+  text-shadow:0 2px 14px rgba(0,0,0,.95);
+  opacity:0;transition:opacity .8s;animation:blink 2s infinite}
+#relicTip.on{opacity:1}
+/* 点击后：镜头切近，看它亮起来 */
+#relicShot{position:absolute;inset:0;z-index:3;display:none;
+  align-items:center;justify-content:center;background:rgba(6,4,3,.93)}
+#relicShot.on{display:flex;animation:fade .5s both}
+#relicShot .box{position:relative;width:min(56vh,520px);aspect-ratio:1;
+  transform:scale(.94);animation:pop .8s cubic-bezier(.2,.9,.3,1) both}
+#relicShot img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  transition:opacity 1s ease;
+  -webkit-mask-image:radial-gradient(ellipse 60% 44% at 50% 52%, #000 42%, transparent 76%);
+  mask-image:radial-gradient(ellipse 60% 44% at 50% 52%, #000 42%, transparent 76%)}
+#relicB{opacity:0}
+#relicShot.two #relicB{opacity:1}
+/* 触碰后：光从中心炸开 */
+#burst{position:absolute;left:50%;top:50%;width:0;height:0;transform:translate(-50%,-50%);
+  border-radius:50%;pointer-events:none;z-index:58;
+  background:radial-gradient(circle, rgba(255,246,226,.98) 0%, rgba(255,224,160,.6) 40%, transparent 72%);
+  transition:width 1.5s cubic-bezier(.5,0,.75,0), height 1.5s cubic-bezier(.5,0,.75,0), opacity .6s;
+  opacity:0}
+#burst.on{width:330%;height:330%;opacity:1}
+
+/* ---------- 证据板 ---------- */
+#board{position:absolute;inset:0;z-index:76;display:none;background:#0A0705}
+body.boardopen .scr,body.boardopen #cross{visibility:hidden}
+#board.on{display:block;animation:fade .45s both}
+#board .bg{position:absolute;inset:0;pointer-events:none;width:100%;height:100%;object-fit:cover;opacity:.16;
+  filter:saturate(.7) brightness(.9)}
+#board::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 70% at 50% 46%, transparent 30%, rgba(6,4,3,.72) 100%)}
+#board .inner{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2.2vh;padding:4vh 4vw}
+#board h2{color:var(--gold);letter-spacing:.42em;font-size:clamp(18px,2.8vh,27px);font-weight:400}
+#board .sub{color:rgba(232,223,204,.55);letter-spacing:.2em;font-size:clamp(13px,1.9vh,18px);margin-top:-1.2vh}
+#slots{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(8px,1.4vw,20px);width:min(1120px,92%)}
+.slot{position:relative;aspect-ratio:1;border:1px solid rgba(232,223,204,.16);
+  background:rgba(232,223,204,.03);overflow:hidden;transition:.3s;cursor:default}
+.slot img{width:100%;height:100%;object-fit:cover;opacity:.9}
+.slot .no{position:absolute;left:0;right:0;bottom:0;text-align:center;padding:.5em 0;
+  background:linear-gradient(180deg,transparent,rgba(10,7,5,.86) 45%);
+  color:rgba(232,223,204,.72);letter-spacing:.2em;font-size:clamp(11px,1.6vh,15px)}
+.slot.has{border-color:rgba(200,162,74,.65);box-shadow:0 0 26px rgba(200,162,74,.2);cursor:pointer}
+.slot.has:hover{transform:translateY(-4px)}
+.slot.has .no{color:#F0D68F}
+#detail{width:min(1120px,92%);min-height:9em;padding:2.4vh 2vw 0;
+  color:var(--paper-dim);
+  font-size:clamp(15px,2.1vh,20px);line-height:1.95;letter-spacing:.06em}
+#detail b{display:block;color:var(--paper);letter-spacing:.24em;font-weight:400;margin-bottom:.4em;
+  font-size:clamp(16px,2.3vh,22px)}
+#detail q{display:block;margin:.65em 0;color:var(--gold);font-style:normal;
+  border-left:2px solid rgba(200,162,74,.55);padding-left:1em}
+#detail .y{color:rgba(232,223,204,.5);letter-spacing:.2em;font-size:.86em}
+
+/* ---------- 全屏文字场景 ---------- */
+.scr{position:absolute;inset:0;z-index:50;display:none;
+  align-items:center;justify-content:center;flex-direction:column;
+  background:#080604;cursor:pointer;padding:12vh 8vw;text-align:center}
+.scr.on{display:flex}
+.scr p{font-size:clamp(20px,3.3vh,36px);line-height:2.15;letter-spacing:.2em;
+  color:#E6DCC8;margin:.35em 0;opacity:0;transform:translateY(10px);
+  transition:opacity 1s, transform 1s}
+.scr p.on{opacity:1;transform:none}
+.scr .hint{position:absolute;bottom:6vh;color:rgba(232,223,204,.4);
+  letter-spacing:.26em;font-size:clamp(13px,1.8vh,17px);animation:blink 1.6s infinite}
+#epi p{font-size:clamp(26px,4.6vh,54px);letter-spacing:.32em;color:#EFE5D0}
+/* 多行的那一屏（时间地点交代）用小一档，并收窄行宽 */
+#epi.para p{font-size:clamp(18px,2.9vh,31px);letter-spacing:.18em;line-height:2.2;
+  max-width:34em;margin-left:auto;margin-right:auto;
+  text-wrap:balance}  /* 两行匀开，别让最后一两个字单独掉一行 */
+#flash{position:absolute;inset:0;z-index:60;background:#F6EFE0;opacity:0;
+  pointer-events:none;transition:opacity .5s}
+#flash.on{opacity:1}
+
+/* 转场：每章一种，不再一律白闪 */
+#flash{transition:opacity .5s ease}
+body.tr-shutter #flash{transition:opacity .12s linear}
+body.tr-fog #flash{
+  background:radial-gradient(ellipse 120% 90% at 50% 60%,
+    rgba(140,151,164,.2) 0%, rgba(140,151,164,.92) 55%, rgba(96,106,118,1) 100%) !important;
+  transition:opacity 1.6s ease}
+body.tr-sepia #flash{
+  background:linear-gradient(180deg, rgba(200,179,137,.95), rgba(168,146,106,.98)) !important;
+  transition:opacity 1.1s ease}
+body.tr-dim #flash{background:#060403 !important;transition:opacity 1.5s ease}
+body.tr-glass #flash{
+  background:linear-gradient(115deg, rgba(220,228,232,0) 18%, rgba(226,234,238,.95) 46%,
+    rgba(220,228,232,.75) 58%, rgba(220,228,232,0) 84%) !important;
+  transition:opacity 1s ease}
+
+
+/* ---------- 主菜单 ---------- */
+#menu{position:absolute;inset:0;z-index:70;display:flex;align-items:center;justify-content:center}
+#menu.off{display:none}
+#menu .bg{position:absolute;inset:0;pointer-events:none;width:100%;height:100%;object-fit:cover}
+#menu .veil{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(10,7,5,.55) 0%,rgba(10,7,5,.35) 40%,rgba(8,5,4,.88) 100%)}
+#menu .box{position:relative;text-align:center;padding:0 6vw}
+#menu .kicker{color:var(--gold);letter-spacing:.5em;font-size:clamp(13px,1.9vh,18px);margin-bottom:1.6vh}
+#menu h1{font-size:clamp(34px,7.6vh,78px);letter-spacing:.36em;font-weight:600;
+  color:#F2E9D6;text-shadow:0 6px 40px rgba(0,0,0,.9);margin-bottom:.6vh}
+#menu h2{font-size:clamp(16px,2.4vh,24px);letter-spacing:.3em;font-weight:400;
+  color:var(--paper-dim);margin-bottom:1.4vh}
+#menu .chap{letter-spacing:.24em;font-size:clamp(14px,2vh,18px);color:rgba(232,223,204,.62)}
+#menu .line{width:5em;height:1px;background:rgba(200,162,74,.6);margin:2.4vh auto}
+#menu .disclaim{margin-top:2.2vh;color:rgba(232,223,204,.5);letter-spacing:.1em;
+  font-size:clamp(12px,1.6vh,15px);line-height:1.9;max-width:34em;margin-left:auto;margin-right:auto}
+#menu .btns{display:flex;gap:clamp(10px,1.6vw,22px);justify-content:center;flex-wrap:wrap;margin-top:2.2vh}
+.mbtn{padding:.95em 2.3em;border:1px solid rgba(232,223,204,.4);background:rgba(12,8,6,.42);
+  color:var(--paper);font-family:inherit;font-size:clamp(15px,2.3vh,21px);
+  letter-spacing:.26em;cursor:pointer;transition:.22s;backdrop-filter:blur(2px)}
+.mbtn:hover{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.mbtn.p{border-color:var(--gold);color:var(--gold)}
+.mbtn.p:hover{background:var(--gold);color:#1A130E}
+.mbtn.hide{display:none}
+
+/* ---------- 地图：选章 ---------- */
+#map{position:absolute;inset:0;z-index:66;display:none;background:#0B0806}
+#map.on{display:block;animation:fade .6s both}
+#map .bg{display:none}
+#map .veil{position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 62% at 50% 46%, rgba(38,28,20,.55) 0%, transparent 72%),
+    linear-gradient(180deg, #0C0907 0%, #090705 100%)}
+#map .veil::after{content:"";position:absolute;inset:0;opacity:.045;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23m)'/></svg>")}
+#mapHead{position:absolute;left:0;right:0;top:5.5%;pointer-events:none;text-align:center;z-index:3}
+#mapHead h2{color:var(--gold);letter-spacing:.5em;font-weight:400;
+  font-size:clamp(18px,2.8vh,27px)}
+#mapHead .sub{margin-top:.7em;color:rgba(232,223,204,.5);letter-spacing:.22em;
+  font-size:clamp(12px,1.7vh,16px)}
+#mapCanvas{position:absolute;left:7%;right:7%;top:19%;bottom:15%;z-index:2}
+#mapSvg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;opacity:.5}
+/* 一个节点 = 一桩案子的卷宗 */
+.mapNode{position:absolute;transform:translate(-50%,-50%);z-index:4;cursor:default;
+  width:clamp(170px,21vw,260px);padding:clamp(12px,2vh,20px) clamp(14px,1.6vw,22px);
+  border:1px solid rgba(232,223,204,.18);background:rgba(18,13,9,.62);
+  backdrop-filter:blur(2px);transition:.3s;text-align:left}
+.mapNode .cName{color:rgba(232,223,204,.5);letter-spacing:.2em;
+  font-size:clamp(15px,2.3vh,22px);line-height:1.5}
+.mapNode .cSub{color:rgba(232,223,204,.38);letter-spacing:.14em;
+  font-size:clamp(11px,1.55vh,14px);margin-top:.25em}
+.mapNode .cMeta{margin-top:.9em;padding-top:.8em;border-top:1px solid rgba(232,223,204,.12);
+  color:rgba(232,223,204,.34);letter-spacing:.1em;font-size:clamp(10px,1.45vh,13px);line-height:1.85}
+.mapNode .cState{position:absolute;right:clamp(14px,1.6vw,22px);top:clamp(12px,2vh,20px);
+  color:rgba(232,223,204,.3);letter-spacing:.18em;font-size:clamp(10px,1.4vh,13px)}
+/* 可进入 */
+.mapNode.open{cursor:pointer;border-color:rgba(200,162,74,.5);background:rgba(24,17,10,.7);
+  box-shadow:0 0 0 1px rgba(200,162,74,.12), 0 10px 40px rgba(0,0,0,.55)}
+.mapNode.open .cName{color:#F2E9D6}
+.mapNode.open .cSub{color:rgba(232,223,204,.6)}
+.mapNode.open .cMeta{color:rgba(232,223,204,.55)}
+.mapNode.open .cState{color:var(--gold)}
+.mapNode.open::after{content:"";position:absolute;inset:-1px;pointer-events:none;
+  border:1px solid rgba(200,162,74,.35);animation:breathe 3s ease-in-out infinite}
+.mapNode.open:hover{transform:translate(-50%,-50%) translateY(-4px);
+  border-color:var(--gold);background:rgba(30,21,12,.82)}
+/* 已结案 */
+.mapNode.done .cState::after{content:" ✓";color:var(--gold)}
+#mapFoot{position:absolute;left:0;right:0;bottom:5%;z-index:5;text-align:center}
+#mapFoot .mbtn{margin:0 .4em}
+
+/* ---------- 追索图：整张手绘地图当底 ---------- */
+#map.kv{background:#0B0806}
+#map.kv .bg{display:block;position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;pointer-events:none}
+#map.kv .veil{display:none}
+#map.kv #mapHead{display:none}          /* 标题画在图上了 */
+#map.kv #mapSvg{display:none}
+#map.kv #mapCanvas{position:absolute;inset:0;left:0;right:0;top:0;bottom:0}
+/* 卷宗牌本身是画上去的，这里只盖一块透明的可点区 */
+#map.kv .mapNode{transform:none;width:auto;padding:0;border:none;background:none;
+  backdrop-filter:none;box-shadow:none;border-radius:10px}
+#map.kv .mapNode .cName,#map.kv .mapNode .cSub,#map.kv .mapNode .cMeta{display:none}
+#map.kv .mapNode::after{display:none}
+/* 未开放的七桩不标字，图上已经画得很清楚了 */
+#map.kv .mapNode .cState{display:none}
+#map.kv .mapNode.open .cState{display:block;position:absolute;left:50%;bottom:-2.1em;
+  top:auto;right:auto;pointer-events:none;   /* 不清掉继承的 top 会被撑成一长条 */
+  transform:translateX(-50%);white-space:nowrap;padding:.18em .8em;border-radius:3px;
+  color:#6B4718;letter-spacing:.18em;font-size:clamp(10px,1.4vh,13px);
+  background:rgba(240,228,200,.82);border:1px solid rgba(150,110,58,.45);
+  box-shadow:0 2px 8px rgba(60,40,20,.28)}
+/* 只留一团柔光，不描边。描了边就像在地图上贴了个框 */
+#map.kv .mapNode.open{cursor:pointer;border-radius:14%;
+  background:radial-gradient(ellipse at center,
+    rgba(214,168,84,.20) 0%, rgba(206,158,74,.10) 52%, transparent 76%);
+  animation:breathe 3.4s ease-in-out infinite}
+#map.kv .mapNode.open:hover{animation:none;
+  background:radial-gradient(ellipse at center,
+    rgba(220,178,96,.34) 0%, rgba(208,160,76,.18) 54%, transparent 78%)}
+#map.kv .mapNode.done .cState::after{content:" ✓"}
+/* 右侧那三个图标也是画上去的，同样只盖热区 */
+#map.kv #mapFoot{position:static}
+#map.kv #mapFoot .mbtn{position:absolute;margin:0;border:none;background:none;
+  color:transparent;text-shadow:none;padding:0;border-radius:8px;z-index:6;
+  backdrop-filter:none}   /* .mbtn 自带 blur(2px)，压在图标上就是它把图标糊掉的 */
+#map.kv #mapFoot .mbtn:hover{background:rgba(200,162,74,.16)}
+#map.kv #mapBoard{right:6.6%;top:11%;width:7.4%;height:10.5%}
+#map.kv #mapCodex{right:6.6%;top:24%;width:7.4%;height:10.5%}
+#map.kv #mapSet  {display:none}   /* 底图上那块「设置」牌已抹掉，热区一并撤掉 */
+/* 图上没画返回，补一个在左上角罗盘旁边，做成图上那种纸片按钮 */
+#map.kv #mapFoot #mapHome{left:2.4%;top:3.4%;width:8.4%;height:7.2%;backdrop-filter:none;
+  color:rgba(74,50,24,.92);letter-spacing:.2em;font-size:clamp(11px,1.6vh,15px);
+  border:1px solid rgba(120,86,44,.5);border-radius:4px;
+  background:rgba(240,229,203,.62);box-shadow:0 2px 10px rgba(40,26,12,.35)}
+#map.kv #mapFoot #mapHome:hover{background:rgba(244,234,212,.9);color:#5A3C18;
+  border-color:rgba(120,86,44,.85)}
+
+/* ---------- 手机竖屏时提示横过来。舞台是 16:9 的，竖屏只剩中间一条 ---------- */
+#rotate{position:fixed;inset:0;z-index:200;display:none;background:#0B0806;
+  align-items:center;justify-content:center;flex-direction:column;gap:2.6vh;
+  color:var(--paper);text-align:center;padding:0 10vw}
+#rotate .ic{font-size:14vw;color:var(--gold);line-height:1;
+  animation:tilt 2.4s ease-in-out infinite}
+@keyframes tilt{0%,100%{transform:rotate(0)}50%{transform:rotate(-90deg)}}
+#rotate .t1{font-size:clamp(16px,4.8vw,24px);letter-spacing:.28em}
+#rotate .t2{font-size:clamp(12px,3.4vw,16px);letter-spacing:.14em;
+  color:rgba(232,223,204,.55);line-height:1.9}
+@media (orientation:portrait){ #rotate{display:flex} }
+@media (min-width:900px){ #rotate{display:none !important} }
+
+/* ---------- 分章一览：通关之后可以挑任意一章重进 ---------- */
+#chsel{position:absolute;inset:0;z-index:68;display:none;
+  background:#EFE7D4 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4'/></filter><rect width='160' height='160' filter='url(%23p)' opacity='.055'/></svg>")}
+#chsel.on{display:block;animation:fade .4s both}
+#chsel .frame{position:absolute;inset:clamp(10px,1.6vh,20px);pointer-events:none;
+  border:1px solid rgba(120,86,44,.45)}
+#chWrap{position:absolute;inset:clamp(24px,3.6vh,46px);display:flex;flex-direction:column}
+#chTop{flex:none;text-align:center;position:relative;padding-bottom:1.4vh}
+#chTop h2{font-size:clamp(20px,3.4vh,34px);letter-spacing:.3em;color:#3A2E22;font-weight:600}
+#chTop .sub{margin-top:.6vh;letter-spacing:.24em;color:rgba(58,46,34,.62);
+  font-size:clamp(11px,1.6vh,15px)}
+#chBack{position:absolute;left:0;top:0;background:none;border:1px solid rgba(90,64,34,.45);
+  cursor:pointer;font-family:inherit;color:#5A4022;letter-spacing:.18em;
+  font-size:clamp(11px,1.6vh,15px);padding:.5em 1.1em}
+#chBack:hover{background:rgba(255,250,238,.8);border-color:rgba(90,64,34,.9)}
+#chGrid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);
+  gap:clamp(10px,1.6vw,22px);min-height:0;margin-top:1.2vh}
+.chCard{position:relative;cursor:pointer;overflow:hidden;border:1px solid rgba(90,64,34,.4);
+  background:#1A1209;transition:.25s;
+  clip-path:polygon(11px 0,100% 0,100% calc(100% - 11px),calc(100% - 11px) 100%,0 100%,0 11px)}
+.chCard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:.62;transition:.3s}
+.chCard::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(12,8,4,.15) 0%,rgba(12,8,4,.55) 58%,rgba(10,7,3,.88) 100%)}
+.chCard:hover{border-color:#B8912F;box-shadow:0 0 0 1px rgba(184,145,47,.5)}
+.chCard:hover img{opacity:.82;transform:scale(1.03)}
+.chCard .no{position:absolute;left:clamp(10px,1.4vw,18px);top:clamp(8px,1.4vh,16px);z-index:2;
+  font-family:Georgia,serif;font-size:clamp(20px,3.4vh,34px);color:rgba(240,228,200,.5)}
+.chCard .body{position:absolute;left:clamp(10px,1.4vw,18px);right:clamp(10px,1.4vw,18px);
+  bottom:clamp(10px,1.6vh,20px);z-index:2}
+.chCard .nm{color:#F2E9D6;letter-spacing:.14em;font-size:clamp(13px,2vh,20px);line-height:1.45}
+.chCard .yr{margin-top:.35em;color:rgba(232,223,204,.6);letter-spacing:.2em;
+  font-size:clamp(10px,1.5vh,13px)}
+#chFoot{flex:none;text-align:center;padding-top:1.4vh}
+#chFoot .mbtn{margin:0 .4em;border-color:rgba(90,64,34,.5);color:#4A3A2A;
+  background:rgba(255,250,238,.6);backdrop-filter:none}
+#chFoot .mbtn:hover{background:#4A3A2A;color:#EFE4CC}
+
+/* ---------- 文档页 ---------- */
+#doc{position:absolute;inset:0;z-index:80;display:none;
+  align-items:center;justify-content:center;background:rgba(6,4,3,.93)}
+#doc.on{display:flex}
+#doc .sheet{position:relative;width:min(800px,90%);max-height:86vh;overflow-y:auto;
+  background:var(--paper);color:var(--ink);padding:clamp(26px,4.6vh,54px) clamp(24px,4vw,60px)}
+#doc h3{font-size:clamp(21px,3vh,29px);letter-spacing:.3em;margin-bottom:.5em;font-weight:600}
+#doc h4{font-size:clamp(16px,2.1vh,19px);letter-spacing:.2em;color:var(--vermilion);
+  margin:1.6em 0 .6em;font-weight:600}
+#doc p,#doc li{font-size:clamp(15px,2.05vh,19px);line-height:2;text-align:justify;margin-bottom:.7em}
+#doc ul{padding-left:1.3em}
+#doc .rule{height:1px;background:var(--ink);opacity:.2;margin:1.4em 0}
+#doc .close{margin-top:1.6em;padding:.75em 2.2em;border:1px solid var(--ink);background:none;
+  color:var(--ink);font-family:inherit;letter-spacing:.24em;cursor:pointer;font-size:clamp(14px,1.9vh,18px)}
+#doc .close:hover{background:var(--ink);color:var(--paper)}
+
+.fly{position:fixed;z-index:90;pointer-events:none;border-radius:4px;
+  box-shadow:0 12px 40px rgba(0,0,0,.7);transition:all 1.15s cubic-bezier(.5,.05,.35,1)}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <img id="bg"  alt="">
+  <img id="bg2" alt="">
+  <div id="bloom"></div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
+  <div id="curtain"></div>
+
+  <div id="hot"></div>
+  <div id="os"></div>
+
+  <div id="dlg">
+    <div class="row">
+      <img class="av" id="dlgAv" alt="">
+      <div class="body">
+        <div class="who" id="dlgWho"></div>
+        <div class="txt" id="dlgTxt"></div>
+      </div>
+    </div>
+    <div class="next">继 续 ▸</div>
+  </div>
+
+  <div id="hud">
+    <div class="tl" id="hudCh"></div>
+    <div class="tr">物证 <b id="hudNum">0</b> / 5</div>
+    <button class="hudbtn" id="btnBoard">证 据 板</button>
+    <button class="hudbtn" id="btnSave">存 档</button>
+    <button class="hudbtn" id="btnSound">音效 开</button>
+    <button class="hudbtn" id="btnMenu">主 菜 单</button>
+  </div>
+  <div id="tip"></div>
+  <div id="toast"></div>
+
+  <div id="cu">
+    <div id="cuWrap"><img id="cuA" alt=""><img id="cuB" alt=""></div>
+    <div id="cuTitle"></div>
+    <div id="cuCap"></div>
+    <div id="cuHint">点击继续</div>
+  </div>
+
+  <div id="lt">
+    <div id="ltWrap">
+      <div id="ltPaper"><img id="ltImg" alt=""></div>
+      <div id="ltBody">
+        <div id="ltTitle"></div>
+        <div id="ltDate"></div>
+        <div id="ltLines"></div>
+        <div id="ltSign"></div>
+      </div>
+    </div>
+    <div id="ltHint">点击收起</div>
+  </div>
+
+  <div id="board">
+    <img class="bg" src="assets/ui_casebook.jpg" alt="">
+    <div class="inner">
+      <h2>证 据 板</h2>
+      <div id="slots"></div>
+      <div id="detail"></div>
+      <button class="mbtn" id="boardFic" style="margin-top:.6vh">史实与虚构</button>
+      <button class="mbtn" id="boardClose" style="margin-top:.6vh">返 回</button>
+    </div>
+  </div>
+
+  <div id="world">
+    <div id="worldBox"></div>
+    <div id="worldTrace"></div>
+    <button id="worldSkip">跳 过</button>
+  </div>
+
+  <div id="unf">
+    <div id="unfWrap"><img id="unfImg" alt=""></div>
+    <div id="unfTitle"></div>
+    <div id="unfCap"></div>
+    <div id="unfLine"></div>
+    <div id="unfHint">点击继续</div>
+  </div>
+
+  <div id="fin">
+    <img id="finBg" alt="">
+    <div id="finVeil"></div>
+    <div id="finBox">
+      <div id="finQ"></div>
+      <div id="finOpts"></div>
+      <div id="finText"></div>
+    </div>
+    <div id="finLabel"><img id="finLabelImg" alt=""></div>
+    <div id="finLabelCap"></div>
+  </div>
+
+  <div id="cross">
+    <img id="crossBg" alt="">
+    <div id="crossVeil"></div>
+    <div id="crossLines"></div>
+    <div id="relicHot"></div>
+    <div id="relicTip"></div>
+    <div id="relicShot"><div class="box"><img id="relicA" alt=""><img id="relicB" alt=""></div></div>
+  </div>
+  <div id="burst"></div>
+
+  <div class="scr" id="epi"><div id="epiBox"></div><div class="hint">点击继续</div></div>
+  <div class="scr" id="end" style="cursor:default"><div id="endBox"></div></div>
+  <div id="flash"></div>
+
+  <div id="menu" class="kv">
+    <img class="bg" src="assets/ui_kv_title.jpg" alt="">
+    <div class="veil"></div>
+    <div class="box">
+      <h1 id="mTitle"></h1>
+      <div class="line"></div>
+      <h2 id="mSub"></h2>
+      <div class="chip" id="mChap"></div>
+      <button class="enter" id="mStart">点 击 进 入 游 戏</button>
+      <button class="resume hide" id="mResume">继 续 游 戏</button>
+    </div>
+    <div id="menuRail">
+      <button id="mArchive"><span class="ic">▤</span>档案</button>
+      <button id="mSetting"><span class="ic">✿</span>设置</button>
+      <button id="mAbout"><span class="ic">i</span>关于</button>
+    </div>
+  </div>
+
+  <div id="map" class="kv">
+    <img class="bg" src="assets/ui_map.jpg" alt="">
+    <div class="veil"></div>
+    <div id="mapHead"><h2></h2><div class="sub"></div></div>
+    <div id="mapCanvas"><svg id="mapSvg" preserveAspectRatio="none"></svg></div>
+    <div id="mapFoot">
+      <button class="mbtn" id="mapBoard">证 据 板</button>
+      <button class="mbtn" id="mapCodex">图 鉴</button>
+      <button class="mbtn" id="mapSet">设 置</button>
+      <button class="mbtn" id="mapHome">返 回</button>
+    </div>
+  </div>
+
+
+  <div id="codex">
+    <div class="paper"></div>
+    <div class="frame"></div>
+    <div id="cxWrap">
+      <div id="cxTop">
+        <button id="cxBack">← 返 回</button>
+        <h2>文 物 图 鉴</h2>
+        <div class="sub" id="cxSub"></div>
+      </div>
+      <div id="cxBody">
+        <div id="cxLeft">
+          <div id="cxTabs"></div>
+          <div id="cxGrid"></div>
+          <div id="cxPager"><button id="cxPrev">←</button><span id="cxPage">1 / 1</span><button id="cxNext">→</button></div>
+        </div>
+        <div id="cxRight">
+          <div id="cxHero"></div>
+          <div id="cxName"></div>
+          <div id="cxMeta"></div>
+          <div id="cxDesc"></div>
+          <div id="cxFlow">
+            <div id="cxSteps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pv">
+    <img id="pvImg" alt="">
+    <div id="pvVeil"></div>
+    <div id="pvLine"></div>
+    <button id="pvSkip">跳 过</button>
+  </div>
+
+  <div id="lyric"></div>
+  <div id="chsel">
+    <div class="frame"></div>
+    <div id="chWrap">
+      <div id="chTop">
+        <button id="chBack">← 返 回</button>
+        <h2>分 章 一 览</h2>
+        <div class="sub">这一案你已经走完过一遍，挑哪一章都可以直接进</div>
+      </div>
+      <div id="chGrid"></div>
+      <div id="chFoot">
+        <button class="mbtn p" id="chAll">从 头 连 着 打</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rotate">
+    <div class="ic">▯</div>
+    <div class="t1">请把手机横过来</div>
+    <div class="t2">这是一部 16:9 的作品<br>横屏才看得见完整画面</div>
+  </div>
+
+  <div id="doc"><div class="sheet" id="docSheet"></div></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+/* ===================== 基础 ===================== */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const B = document.body;
+const SAVE_KEY = 'xunji_weiguilu_v1';
+
+/* chapter 是第几章（0 起）。CH1 始终指向当前这一章，切章时重新赋值。 */
+const state = { chapter:0, step:0, collected:[], lit:false, busy:false,
+                started:false, cleared:[], facingBack:false, era:null,
+                finished:false };   // finished 记「这桩案子通关过」，跟本轮进度分开
+let CH1 = CHAPTERS[0];
+function useChapter(n){
+  state.chapter = n;
+  CH1 = CHAPTERS[n];
+  state.era = CH1.hotspots.some(h => h.era) ? '1949' : null;
+  state.facingBack = false;
+  state.lit = false;
+}
+/* 当前该显示哪张背景。六章的分支都收在这里。 */
+function sceneBg(){
+  if(state.era === 'boxes') return CH1.boxesBg || 'assets/threeboxes.jpg';
+  if(state.era === '2024')  return CH1.bg2024b || CH1.bg2024;
+  if(CH1.bgBack && state.facingBack) return CH1.bgBack;
+  if(state.lit && CH1.bgLit) return CH1.bgLit;
+  return CH1.bgFront || CH1.bgDim;
+}
+
+/* ---------- 存档 ---------- */
+function saveGame(silent){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      chapter: state.chapter, step: state.step, collected: state.collected,
+      lit: state.lit, era: state.era, facingBack: state.facingBack,
+      cleared: state.cleared, finished: state.finished || state.cleared.includes(6),
+      started: true, at: new Date().toISOString()
+    }));
+    if(!silent) toast('已存档 · 主菜单可继续');
+  }catch(e){ if(!silent) toast('这个浏览器不让存档'); }
+}
+function readSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const s = JSON.parse(raw);
+    return (s && s.started && typeof s.step === 'number' && s.step >= 0) ? s : null;
+  }catch(e){ return null; }
+}
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+
+let toastTimer = null;
+function toast(text){
+  const el = $('#toast');
+  el.textContent = text; el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
+/* ---------- 声音（WebAudio 现场合成，无音频文件） ---------- */
+const SFX = (() => {
+  let ctx = null, on = true;
+  const ac = () => (ctx ||= new (window.AudioContext || window.webkitAudioContext)());
+  function noise(dur, freq, q, gain, type='bandpass'){
+    if(!on) return;
+    const c = ac(), n = c.sampleRate * dur;
+    const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain(); g.gain.value = gain;
+    src.connect(f).connect(g).connect(c.destination); src.start();
+  }
+  function tone(freq, dur, gain, type='sine'){
+    if(!on) return;
+    const c = ac(), o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, c.currentTime);
+    g.gain.linearRampToValueAtTime(gain, c.currentTime + .04);
+    g.gain.exponentialRampToValueAtTime(.0001, c.currentTime + dur);
+    o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+  }
+  return {
+    click(){ noise(.06, 2600, 1.2, .05); },
+    paper(){ noise(.34, 1700, .8, .07); },
+    flash(){ noise(.05, 5200, .9, .07); tone(2400, .12, .03, 'square'); noise(.9, 700, .6, .04); },
+    unfold(){ noise(1.4, 1300, .6, .05); },
+    lamp(){ tone(180, 1.5, .05); tone(272, 1.2, .028); noise(.2, 900, .7, .04); },
+    glow(){ tone(660, 1.6, .035, 'triangle'); tone(990, 1.3, .016, 'sine'); },
+    warp(){ tone(110, 2.6, .06, 'sine'); tone(165, 2.2, .03, 'triangle'); noise(1.8, 600, .5, .05); },
+    chime(){ tone(880, 1.8, .05, 'sine'); tone(1320, 1.5, .022, 'sine'); },
+    type(){ noise(.012, 3400, 2, .012); },
+    /* 老上海的电车铃：铜铃，两下 */
+    tram(){
+      if(!on) return;
+      [0, .26].forEach(d => {
+        const c = ac(), t = c.currentTime + d;
+        [1180, 1790, 2630, 3510].forEach((f, i) => {
+          const o = c.createOscillator(), g = c.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(.05 / (i + 1.6), t + .006);
+          g.gain.exponentialRampToValueAtTime(.0001, t + 1.5 - i * .22);
+          o.connect(g).connect(c.destination); o.start(t); o.stop(t + 1.6);
+        });
+      });
+    },
+    /* 出港的汽笛：两个低音略微失谐，起落都慢 */
+    horn(dur){
+      if(!on) return;
+      const c = ac(), t = c.currentTime, D = dur || 3.4;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.075, t + .7);
+      g.gain.setValueAtTime(.075, t + D - 1.1);
+      g.gain.exponentialRampToValueAtTime(.0001, t + D);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+      [104, 104 * 1.007, 156, 208].forEach((f, i) => {
+        const o = c.createOscillator();
+        o.type = i === 3 ? 'triangle' : 'sawtooth';
+        o.frequency.value = f;
+        const og = c.createGain(); og.gain.value = [.5, .5, .28, .14][i];
+        o.connect(og).connect(lp); o.start(t); o.stop(t + D + .1);
+      });
+      lp.connect(g).connect(c.destination);
+      const n = c.createBufferSource();      // 一点气流声
+      const nb = c.createBuffer(1, c.sampleRate * D, c.sampleRate), nd = nb.getChannelData(0);
+      for(let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * .5;
+      n.buffer = nb;
+      const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 380; nf.Q.value = .8;
+      const ng = c.createGain(); ng.gain.value = .02;
+      n.connect(nf).connect(ng).connect(g); n.start(t); n.stop(t + D);
+    },
+    toggle(){ on = !on; if(on) ac().resume?.();
+      if(typeof BGM !== 'undefined') BGM.mute(!on);
+      if(typeof AMB !== 'undefined') AMB.mute(!on);
+      if(typeof BG2 !== 'undefined') BG2.mute(!on);
+      return on; }
+  };
+})();
+
+/* ---------- 声音：音乐一路、底噪一路，各走各的 ---------- */
+function makeChannel(){
+  let el = null, cur = null, fadeTimer = null, muted = false, loopFrom = null, once = false, want = .6;
+  function node(){
+    if(!el){
+      el = new Audio();
+      el.loop = false;
+      el.preload = 'auto';
+      /* 放到头就绕回 loopFrom，绕过开头那段淡入 */
+      el.addEventListener('ended', () => {
+        if(!cur || once) return;      // 节选类的曲子放完就算，别绕回去重来
+        try{ el.currentTime = loopFrom || 0; }catch(e){}
+        const p = el.play(); if(p && p.catch) p.catch(() => {});
+      });
+    }
+    return el;
+  }
+  function ramp(to, ms, done){
+    clearInterval(fadeTimer);
+    const a = node(), from = a.volume, t0 = performance.now();
+    fadeTimer = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      a.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+      if(k >= 1){ clearInterval(fadeTimer); fadeTimer = null; if(done) done(); }
+    }, 40);
+  }
+  return {
+    /* src 换了才重新加载，同一首里跳播用 seek */
+    play(src, opt){
+      opt = opt || {};
+      const a = node();
+      loopFrom = opt.loopFrom; once = !!opt.once;
+      want = opt.vol == null ? .6 : opt.vol;
+      const vol = muted ? 0 : want;
+      if(cur !== src){
+        cur = src; a.src = src;
+        a.currentTime = opt.from || 0;
+      }else if(opt.from != null){
+        try{ a.currentTime = opt.from; }catch(e){}
+      }
+      a.volume = opt.fade === 0 ? vol : 0;
+      const p = a.play();
+      if(p && p.catch) p.catch(() => {});   // 没有用户手势时浏览器会拒播，忽略
+      if(opt.fade !== 0) ramp(vol, opt.fade || 1600);
+    },
+    /* 同一首里换位置，接缝用一次快速淡出淡入盖掉 */
+    seek(sec, opt){
+      opt = opt || {};
+      const a = node();
+      if(!cur) return;
+      if(opt.vol != null) want = opt.vol;
+      const vol = muted ? 0 : (opt.vol == null ? a.volume : opt.vol);
+      ramp(0, opt.out || 700, () => {
+        try{ a.currentTime = sec; }catch(e){}
+        if(a.paused){ const p = a.play(); if(p && p.catch) p.catch(() => {}); }
+        ramp(vol, opt.in || 1400);
+      });
+    },
+    stop(ms){
+      if(!cur) return;
+      ramp(0, ms == null ? 2200 : ms, () => { const a = node(); a.pause(); cur = null; });
+    },
+    mute(on){
+      muted = on;
+      const a = node();
+      clearInterval(fadeTimer); fadeTimer = null;
+      if(on){ a.volume = 0; }
+      /* 关了再开必须把音量还回去。只翻标志位的话，这一路会一直哑到下次换曲子 */
+      else if(cur){ ramp(want, 420); }
+    },
+    playing(){ return !!cur; },
+    time(){ return el ? el.currentTime : 0; },
+    src(){ return cur; }
+  };
+}
+const BGM = makeChannel();    // 音乐
+const AMB = makeChannel();    // 白噪音底噪，比音乐低十来分贝，一直循环
+const BG2 = makeChannel();    // 第三章要三层叠着，这一路留给交叉淡入的那一首
+const CH_AUDIO = { bgm:BGM, amb:AMB, bg2:BG2 };
+/* 一次性音效：铃、汽笛这种放完就算的，用完自己丢掉 */
+function oneShot(src, vol){
+  try{
+    const a = new Audio(src);
+    a.volume = vol == null ? 1 : vol;
+    const p = a.play(); if(p && p.catch) p.catch(() => {});
+  }catch(e){}
+}
+
+/* ---------- 背景双缓冲 ---------- */
+let bgFront = true;
+async function setBg(url, fade = 1100){
+  const a = $('#bg'), b = $('#bg2');
+  const [show, hide] = bgFront ? [b, a] : [a, b];
+  if(show.getAttribute('src') !== url) show.src = url;
+  show.style.opacity = 1; hide.style.opacity = 0;
+  bgFront = !bgFront;
+  await sleep(fade);
+}
+
+/* ---------- 打字机 ---------- */
+let typing = null;
+function typeInto(el, html, speed = 30){
+  return new Promise(resolve => {
+    const plain = html.replace(/<[^>]+>/g, '');
+    let i = 0;
+    el.innerHTML = '';
+    const tick = () => {
+      i++;
+      el.innerHTML = markup(html, i);
+      if(i % 3 === 0) SFX.type();
+      if(i >= plain.length){ typing = null; resolve(); }
+      else typing = setTimeout(tick, speed);
+    };
+    typing = setTimeout(tick, speed);
+    typeInto.finish = () => {
+      if(typing){ clearTimeout(typing); typing = null; el.innerHTML = html; resolve(); }
+    };
+  });
+}
+function markup(html, n){
+  let out = '', count = 0, i = 0, open = false;
+  while(i < html.length && count < n){
+    if(html[i] === '<'){
+      const j = html.indexOf('>', i);
+      const tag = html.slice(i, j+1);
+      out += tag; open = tag[1] !== '/'; i = j + 1; continue;
+    }
+    out += html[i]; count++; i++;
+  }
+  if(open && !out.endsWith('</em>')) out += '</em>';
+  return out;
+}
+
+/* ---------- 旁白 / 提示 ---------- */
+async function os(text, hold = 1900){
+  const el = $('#os');
+  el.textContent = text; el.classList.add('on');
+  await sleep(hold);
+  el.classList.remove('on');
+  await sleep(700);
+}
+let tipTimer = null;
+function tip(text){
+  const el = $('#tip');
+  el.textContent = text; el.classList.add('on');
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => el.classList.remove('on'), 2800);
+}
+function waitClick(target = document){
+  return new Promise(r => {
+    const h = () => { target.removeEventListener('click', h); r(); };
+    target.addEventListener('click', h);
+  });
+}
+
+/* ---------- 对话 ---------- */
+async function dialogue(lines){
+  const dlg = $('#dlg'), txt = $('#dlgTxt');
+  let raised = dlg.classList.contains('on');
+  for(const line of lines){
+    const isOS = line.who === 'os';
+    dlg.classList.toggle('os', isOS);
+    dlg.classList.toggle('hasav', !isOS);
+    if(!isOS){
+      const av = (CH1.avatars && CH1.avatars.hasOwnProperty(line.who))
+                 ? CH1.avatars[line.who]
+                 : (CH1.avatar);
+      dlg.classList.toggle('hasav', !!av);      // 没配头像的人只出名字，不出脸
+      if(av) $('#dlgAv').src = av;
+      $('#dlgWho').innerHTML = line.who + (line.act ? ' <i>（' + line.act + '）</i>' : '');
+    }
+    if(!raised){          // 框先摆好，整段对白它一直在，只换里面的字
+      txt.innerHTML = '';
+      dlg.classList.add('on');
+      await sleep(300);
+      raised = true;
+    }
+    const html = (line.text || '').replace(/【(.+?)】/g, '<em>$1</em>');
+    txt.innerHTML = html;         // 整句直接落在框里，不逐字蹦
+    await waitClick(dlg);
+    SFX.click();
+  }
+  dlg.classList.remove('on');
+  await sleep(320);
+}
+
+/* ---------- 道具特写 ---------- */
+async function closeup(cfg){
+  const cu = $('#cu');
+  $('#cuA').src = cfg.imgs[0];
+  $('#cuB').src = cfg.imgs[1] || cfg.imgs[0];
+  $('#cuTitle').textContent = cfg.title;
+  $('#cuCap').textContent = cfg.caption;
+  $('#cuCap').classList.remove('on');
+  cu.classList.remove('two');
+  cu.classList.add('on');
+  await sleep(900);
+  cu.classList.add('two');
+  (SFX[cfg.sfx] || SFX.click)();
+  await sleep(700);
+  $('#cuCap').classList.add('on');
+  await waitClick(cu);
+  SFX.click();
+  cu.classList.remove('on');
+  await sleep(380);
+}
+
+/* ---------- 展信：徐徐展开 + 正文逐行浮现 ---------- */
+async function revealLetter(key){
+  const cfg = CH1.reveals[key];
+  const lt = $('#lt');
+  $('#ltImg').src = cfg.img;
+  $('#ltTitle').textContent = cfg.title;
+  $('#ltDate').textContent = cfg.date;
+  $('#ltSign').textContent = cfg.sign || '';
+  $('#ltSign').classList.remove('on');
+  $('#ltHint').classList.remove('on');
+  const box = $('#ltLines');
+  box.innerHTML = '';
+  const ps = cfg.lines.map(t => {
+    const p = document.createElement('p');
+    const key1 = t.startsWith('$');
+    p.textContent = key1 ? t.slice(1) : t;
+    if(key1) p.className = 'key';
+    box.appendChild(p);
+    return p;
+  });
+
+  lt.classList.remove('open');
+  lt.classList.add('on');
+  await sleep(120);
+  lt.classList.add('open');        // 信纸从一条线徐徐展开
+  SFX.unfold();
+  await sleep(2000);
+
+  for(const p of ps){              // 正文逐行浮现
+    p.classList.add('on');
+    if(p.classList.contains('key')){
+      SFX.glow();
+      // 金色那行落下时换段落，脚本里的「情绪锚点出现后从某处接着放」
+      if(cfg.bgmSeek) BGM.seek(cfg.bgmSeek.at, { vol: cfg.bgmSeek.vol });
+    }
+    await sleep(1250);
+  }
+  $('#ltSign').classList.add('on');
+  await sleep(900);
+  $('#ltHint').classList.add('on');
+
+  await waitClick(lt);
+  SFX.paper();
+  lt.classList.remove('open');     // 收起
+  await sleep(900);
+  lt.classList.remove('on');
+  await sleep(300);
+}
+
+/* ---------- 时间线长卷 ---------- */
+async function unfurl(cfg){
+  const u = $('#unf');
+  $('#unfImg').src = cfg.img;
+  $('#unfTitle').textContent = cfg.title;
+  $('#unfCap').textContent = cfg.caption || '';
+
+  const line = $('#unfLine');          // 时间线：有 segments 才铺，没有就当它不存在
+  line.innerHTML = '';
+  line.classList.toggle('on', !!(cfg.segments && cfg.segments.length));
+  const segs = [];
+  (cfg.segments || []).forEach((sg, i) => {
+    if(i){
+      const arw = document.createElement('span');
+      arw.className = 'arw'; arw.textContent = '→';
+      line.appendChild(arw); segs.push(arw);
+    }
+    const d = document.createElement('div');
+    d.className = 'seg';
+    d.innerHTML = `<span class="y">${sg.year}</span><span class="w">${sg.what}</span>`;
+    line.appendChild(d); segs.push(d);
+  });
+
+  u.classList.remove('open','done');
+  u.classList.add('on');
+  await sleep(150);
+  u.classList.add('open');
+  SFX.unfold();
+  await sleep(3100);
+  u.classList.add('done');
+  await sleep(700);
+  for(const el of segs){             // 一段一段点亮，箭头跟着走
+    el.classList.add('lit');
+    if(el.classList.contains('seg')) SFX.glow();
+    await sleep(el.classList.contains('arw') ? 220 : 780);
+  }
+  if(segs.length) await sleep(900);
+  await waitClick(u);
+  SFX.paper();
+  u.classList.remove('open','done');
+  line.classList.remove('on');
+  await sleep(700);
+  u.classList.remove('on');
+  await sleep(300);
+}
+
+/* ---------- 结局：选一个，画面不变，字幕起 ---------- */
+async function playEnding(){
+  const cfg = CH1.ending, fin = $('#fin');
+  /* 上一轮的尾标签和出口按钮会留在这儿，重玩时就一开场挂在画面上，先清干净 */
+  $('#finLabel').classList.remove('on');
+  $('#finLabelCap').classList.remove('on');
+  $('#finLabelCap').textContent = '';
+  $('#finQ').classList.remove('on');
+  $('#finQ').textContent = '';
+  $('#finOpts').innerHTML = '';
+  $('#finText').innerHTML = '';
+  const oldOut = $('#finOut'); if(oldOut) oldOut.remove();
+  $('#finBg').src = CH1.cutin;              // 玻璃上映着自己的那一张
+  fin.classList.add('on');
+  await sleep(120);
+  fin.classList.add('show');
+  await sleep(1800);
+
+  // 三个选项
+  $('#finQ').textContent = cfg.prompt;
+  $('#finQ').classList.add('on');
+  await sleep(1100);
+  const box = $('#finOpts');
+  box.innerHTML = '';
+  const picked = new Promise(resolve => {
+    cfg.options.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.className = 'finOpt';
+      b.textContent = t;
+      b.onclick = () => resolve(i);
+      box.appendChild(b);
+      setTimeout(() => b.classList.add('on'), 260 * i);
+    });
+  });
+  await picked;
+  SFX.click();
+
+  // 选完了，画面不变
+  $('#finQ').classList.remove('on');
+  box.querySelectorAll('.finOpt').forEach(b => b.classList.remove('on'));
+  await sleep(900);
+  box.innerHTML = '';
+
+  const t = $('#finText');
+  for(const line of cfg.after){
+    const p = document.createElement('p');
+    p.textContent = line; t.appendChild(p);
+    await sleep(80); p.classList.add('on');
+    await sleep(2000);
+  }
+  await sleep(1400);
+  t.querySelectorAll('p').forEach(p => p.classList.remove('on'));
+  await sleep(1200);
+  t.innerHTML = '';
+
+  // 最后的字幕
+  for(const line of cfg.credits){
+    const p = document.createElement('p');
+    p.textContent = line; t.appendChild(p);
+    await sleep(80); p.classList.add('on');
+    await sleep(2200);
+  }
+  await sleep(2000);
+  t.querySelectorAll('p').forEach(p => p.classList.remove('on'));
+  await sleep(1400);
+  t.innerHTML = '';
+
+  // 尾声：放上一张新标签
+  const ls = cfg.lastShot;
+  $('#finLabelImg').src = ls.img;
+  const p = document.createElement('p');
+  p.textContent = ls.line; t.appendChild(p);
+  await sleep(80); p.classList.add('on');
+  await sleep(2200);
+  p.classList.remove('on');
+  await sleep(1000);
+  t.innerHTML = '';
+  BGM.stop(2400);          // 标签落下之前先把曲子收干净，那四个字要落在安静里
+  $('#finLabel').classList.add('on');
+  SFX.paper();
+  await sleep(1600);
+  $('#finLabelCap').textContent = ls.label;
+  $('#finLabelCap').classList.add('on');
+  await sleep(3600);
+
+  // 给个出口，不然玩家停在这一屏什么也点不了
+  const out = document.createElement('div');
+  out.id = 'finOut';
+  out.innerHTML =
+    '<button class="mbtn p" id="oBoard">看 证 据 板</button>' +
+    '<button class="mbtn" id="oMap">回 到 档 案 室</button>' +
+    '<button class="mbtn" id="oAbout">创意说明</button>';
+  $('#fin').appendChild(out);
+  await sleep(60);
+  out.classList.add('on');
+  $('#oBoard').onclick = openBoard;
+  $('#oAbout').onclick = () => openDoc('idea');
+  $('#oMap').onclick   = () => { $('#fin').classList.remove('on','show'); out.remove(); backToMap(); };
+}
+
+/* ===================== 年代跳转：同一间库房，隔了七十五年 ===================== */
+async function jumpYears(){
+  const flash = $('#flash');
+  // 先把画面定住褪色，像一张旧照片
+  $('#bg').style.filter = $('#bg2').style.filter = 'saturate(.25) contrast(1.15) brightness(.9)';
+  SFX.click();
+  await sleep(1400);
+  flash.style.background = '#F6EFE0';
+  flash.classList.add('on');
+  await sleep(600);
+  $('#bg').style.filter = $('#bg2').style.filter = '';
+  await setBg(CH1.bg2024, 0);          // 先是空的，同一间屋子
+  state.era = '2024';
+  await os('2024 年 · 芝加哥大学图书馆库房', 2600);
+  flash.classList.remove('on');
+  await sleep(900);
+  SFX.lamp();
+  if(CH1.bg2024b){                     // 他这才站进来
+    await sleep(700);
+    await setBg(CH1.bg2024b, 1600);
+    await sleep(400);
+  }
+}
+
+/* ===================== 避开视线：柯强来回转身 ===================== */
+let watchTimer = null;
+function stopWatch(){ clearTimeout(watchTimer); watchTimer = null; }
+function startWatch(){
+  stopWatch();
+  const cycle = async () => {
+    if(state.busy){ watchTimer = setTimeout(cycle, 900); return; }   // 演出期间不打断
+    state.facingBack = !state.facingBack;
+    refreshTargets();
+    await setBg(state.facingBack ? CH1.bgBack : CH1.bgFront, 1100);
+    watchTimer = setTimeout(cycle, state.facingBack ? 6200 : 5000);  // 背对的窗口留长一点
+  };
+  watchTimer = setTimeout(cycle, 2200);
+}
+
+const PV_MOVE = {
+  in  : ['scale(1.02)', 'scale(1.14)'],
+  out : ['scale(1.16)', 'scale(1.02)'],
+  up  : ['scale(1.10) translateY(2.5%)',  'scale(1.10) translateY(-2.5%)'],
+  down: ['scale(1.10) translateY(-2.5%)', 'scale(1.10) translateY(2.5%)'],
+  slow: ['scale(1.04)', 'scale(1.10)']
+};
+
+/* 歌词按曲子自己的播放位置显示，跟分镜无关，所以曲子什么时候起都对得上 */
+let lyricTimer = null;
+function startLyrics(cfg){
+  stopLyrics();
+  if(!cfg || !cfg.lines || !cfg.lines.length) return;
+  const box = $('#lyric');
+  const ch = CH_AUDIO[cfg.ch || 'bgm'];
+  if(!ch) return;
+  let shown = -1;
+  lyricTimer = setInterval(() => {
+    const t = ch.time();
+    const i = cfg.lines.findIndex(l => t >= l.t0 && t < l.t1);
+    if(i === shown) return;
+    shown = i;
+    if(i < 0){ box.classList.remove('on'); B.classList.remove('hasLyric'); return; }
+    box.textContent = cfg.lines[i].text;
+    box.classList.add('on'); B.classList.add('hasLyric');
+  }, 120);
+}
+function stopLyrics(){
+  clearInterval(lyricTimer); lyricTimer = null;
+  const box = $('#lyric');
+  if(box){ box.classList.remove('on'); box.textContent = ''; }
+  B.classList.remove('hasLyric');
+}
+
+async function playPV(){
+  const pv = $('#pv'), img = $('#pvImg'), line = $('#pvLine');
+  let skipped = false;
+  $('#pvSkip').onclick = e => { e.stopPropagation(); skipped = true; };
+  pv.classList.add('on');
+  B.classList.add('inscene');
+
+  const cue = list => (list || []).forEach(c => {
+    const ch = CH_AUDIO[c.ch || 'bgm'];
+    if(!ch) return;
+    if(c.stop != null) ch.stop(c.stop);
+    else ch.play(c.src, { from:c.from || 0, vol:c.vol, loopFrom:c.loopFrom, fade:c.fade });
+  });
+
+  for(const shot of CH1.shots){
+    if(skipped) break;
+    cue(shot.audio);              // 这一镜要起或要收的声音
+    // 换图：先暗下去，换好再亮起来，避免硬切
+    pv.classList.remove('show');
+    line.classList.remove('on');
+    await sleep(700);
+    img.src = shot.img;
+    const mv = PV_MOVE[shot.move] || PV_MOVE.slow;
+    img.style.transition = 'none';
+    img.style.transform = mv[0];
+    await sleep(60);
+    img.style.transition = `opacity 1.4s ease, transform ${(shot.dur + 2200) / 1000}s linear`;
+    pv.classList.add('show');
+    img.style.transform = mv[1];
+    await sleep(900);
+
+    const texts = shot.lines || (shot.line ? [shot.line] : []);
+    if(texts.length){
+      line.innerHTML = texts.map(t => `<p>${t}</p>`).join('');
+      line.classList.add('on');
+    }
+    if(shot.collect){
+      await sleep(1100);
+      await collect(shot.collect);          // 托运单在这一镜自动入槽
+    }
+    await Promise.race([sleep(shot.dur), waitClick(pv)]);
+    if(skipped) break;
+  }
+  /* 跳过的人也该拿到这一章的物证，不然证据板永远缺一格 */
+  for(const shot of CH1.shots){
+    if(shot.collect && !state.collected.includes(shot.collect)){
+      state.collected.push(shot.collect);
+      $('#hudNum').textContent = state.collected.length;
+    }
+  }
+  line.classList.remove('on');
+  pv.classList.remove('show');
+  await sleep(900);
+  pv.classList.remove('on');
+  await sleep(300);
+}
+
+/* ===================== 热区 ===================== */
+function buildHotspots(){
+  const wrap = $('#hot');
+  wrap.innerHTML = '';
+  CH1.hotspots.forEach(h => {
+    if(h.era && h.era !== state.era) return;   // 不是这一段的热区，不铺出来
+    const d = document.createElement('div');
+    d.className = 'hs';
+    d.dataset.id = h.id; d.dataset.label = h.label;
+    d.style.cssText = `left:${h.x}%;top:${h.y}%;width:${h.w}%;height:${h.h}%`;
+    d.addEventListener('click', e => { e.stopPropagation(); onHotspot(h); });
+    wrap.appendChild(d);
+  });
+  refreshTargets();
+}
+function refreshTargets(){
+  const cur = CH1.steps[state.step];
+  const ready = !cur || !cur.requireBack || state.facingBack;
+  document.querySelectorAll('.hs').forEach(el => {
+    el.classList.toggle('target', !!cur && el.dataset.id === cur.hotspot && ready);
+  });
+}
+
+async function onHotspot(h){
+  if(state.busy || !state.started) return;   // 还没进章，或者演出中，热区一律不响应
+  const cur = CH1.steps[state.step];
+  // 三只木盒挑一只：挑错了只说一句，不惩罚
+  if(cur && cur.isPick && ['lidL','lidM','lidR'].includes(h.id) && h.id !== cur.hotspot){
+    SFX.click(); tip(cur.pickWrong || '不是这只。'); return;
+  }
+  if(h.step === null){
+    SFX.click();
+    state.busy = true; B.classList.add('busy');
+    const ex = CH1.extras[h.id];
+    if(ex && typeof ex === 'object'){      // 写成对象就是「先看一眼，再想一句」
+      if(ex.closeup) await closeup(ex.closeup);
+      if(ex.os) await os(ex.os, 2200);
+    }else{
+      await os(ex || '……', 2200);
+    }
+    state.busy = false; B.classList.remove('busy');
+    return;
+  }
+  if(!cur || h.id !== cur.hotspot){
+    SFX.click();
+    tip(CH1.locked[h.id] || '先看看别的地方。');
+    return;
+  }
+  if(cur.requireBack && !state.facingBack){      // 他还看着这边
+    SFX.click();
+    tip(CH1.locked[h.id] || '他还看着这边。');
+    return;
+  }
+  runStep(cur);
+}
+
+/* ===================== 主线 ===================== */
+async function runStep(step){
+  state.busy = true; B.classList.add('busy');
+  SFX.click();
+
+  /* 曲子一起，底噪就交班退下，除非这一步写了 keepAmb */
+  const startBgm = spec => {
+    BGM.play(spec.src, { from: spec.from || 0, vol: spec.vol,
+                         loopFrom: spec.loopFrom, fade: spec.fade });
+    if(!spec.keepAmb) AMB.stop(2400);
+  };
+  if(step.bgm) startBgm(step.bgm);
+  if(step.bgmStop) BGM.stop(step.bgmStop === true ? 2600 : step.bgmStop);
+
+  if(step.closeup) await closeup(step.closeup);
+
+  if(step.after && step.after.bgmStop) BGM.stop(step.after.bgmStop);
+  if(step.after && step.after.jump2024){
+    await jumpYears();
+    buildHotspots();                         // 换一批热区，1949 那几个撤掉
+  }
+  if(step.after && step.after.watch){ state.facingBack = false; startWatch(); }
+  if(step.after && step.after.lit){
+    state.lit = true;
+    B.classList.add('lit');
+    SFX.lamp();
+    await setBg(CH1.bgLit, 1400);        // 换成点亮后的那张图
+  }
+  if(step.after && step.after.os) await os(step.after.os, 1700);
+
+  if(step.unfurl) await unfurl(CH1.unfurls[step.unfurl]);
+  if(step.reveal) await revealLetter(step.reveal);
+
+  if(step.bgmOnDialogue) startBgm(step.bgmOnDialogue);   // 换曲卡在对白开口那一下
+
+  if(step.dialogue){
+    const useHarper = step.dialogue.some(l => l.harper);
+    await setBg(step.cutinOverride || (useHarper ? CH1.cutinHarper : CH1.cutin), 900);
+    await dialogue(step.dialogue);
+    await setBg(sceneBg(), 900);
+  }
+  if(step.after && step.after.boxes){        // 他说完话，镜头才跟着手移过去
+    CH1.boxesBg = 'assets/threeboxes.jpg';
+    await setBg(CH1.boxesBg, 1200);
+    state.era = 'boxes';
+    buildHotspots();
+  }
+  if(step.collect) await collect(step.collect);
+  if(step.ending){
+    if(!state.cleared.includes(state.chapter + 1)) state.cleared.push(state.chapter + 1);
+    saveGame(true);
+    await playEnding();
+    state.busy = false; B.classList.remove('busy');
+    return;                                  // 结局之后不再走章末那一套
+  }
+
+  state.step++;
+  refreshTargets();
+  saveGame(true);                        // 每步自动存档
+
+  const next = CH1.steps[state.step];
+  // 自动步之间不要松开 busy，否则这 600 毫秒里玩家能把同一步再点一次
+  if(next && next.auto){ await sleep(600); await runStep(next); return; }
+  state.busy = false; B.classList.remove('busy');
+  if(!next) finishChapter();
+}
+
+async function collect(id){
+  const ev = EVIDENCE.find(e => e.id === id);
+  if(!state.collected.includes(id)) state.collected.push(id);
+
+  const img = document.createElement('img');
+  img.src = ev.img; img.className = 'fly';
+  const st = $('#stage').getBoundingClientRect();
+  const size = st.height * .42;
+  img.style.cssText =
+    `left:${st.left + st.width/2 - size/2}px;top:${st.top + st.height/2 - size/2}px;` +
+    `width:${size}px;height:${size}px;opacity:1`;
+  document.body.appendChild(img);
+  SFX.chime();
+  await sleep(60);
+  const b = $('#btnBoard').getBoundingClientRect();
+  img.style.left = b.left + b.width/2 - 18 + 'px';
+  img.style.top  = b.top + b.height/2 - 18 + 'px';
+  img.style.width = '36px'; img.style.height = '36px'; img.style.opacity = '0';
+  await sleep(1200);
+  img.remove();
+
+  $('#hudNum').textContent = state.collected.length;
+  /* 脚本要求入槽时屏幕浮现这件物证的关键句，然后才报收录 */
+  const line = ev.onCollect || ev.quote;
+  if(line) await os(line, 2800);
+  const NO = {1:'①',2:'②',3:'③',4:'④',5:'⑤'};
+  await os('物证' + (NO[ev.ch] || '') + ' 已收录：' + ev.title, 2000);
+}
+
+function backToMap(){
+  stopWatch();
+  BGM.stop(900); AMB.stop(900); BG2.stop(900); stopLyrics(); closeChapterSelect();
+  // 把章内所有层关干净，免得下次进章带着上一次的状态
+  ['#end','#cross','#world','#epi','#dlg','#cu','#lt','#relicShot'].forEach(sel => {
+    const el = $(sel); if(el) el.classList.remove('on','two','lit','zoom','open');
+  });
+  $('#burst').classList.remove('on');
+  $('#flash').classList.remove('on');
+  state.started = false;
+  state.busy = false;
+  B.classList.remove('inscene', 'lit', 'busy');
+  openMap();
+}
+
+let finishing = false;
+async function finishChapter(){
+  if(finishing) return;      // 防止同一章结算两次，把上一章的结束屏叠到下一章上
+  finishing = true;
+  stopWatch();
+  if(CH1.exitSfx && SFX[CH1.exitSfx]) SFX[CH1.exitSfx]();
+  if(CH1.exitSnd && !CH1.exitSnd.at) oneShot(CH1.exitSnd.src, CH1.exitSnd.vol);
+  AMB.stop(2200); BG2.stop(2600);
+  setTimeout(stopLyrics, 2600);   // 跟着曲子淡出一起收，末句才来得及出现
+  if(CH1.bgmStopAtEnd) BGM.stop(2600);
+  state.busy = true; B.classList.add('busy');
+  const no = state.chapter + 1;
+  if(!state.cleared.includes(no)) state.cleared.push(no);   // 这一章过了，地图上点亮
+  saveGame(true);
+  await sleep(400);
+  await setBg(CH1.bgDim || CH1.bgFront, 1400);
+  B.classList.remove('lit');
+  await sleep(900);
+
+  const box = $('#endBox');
+  box.innerHTML = '';
+  $('#end').classList.add('on');
+  for(const line of CH1.outro){
+    const p = document.createElement('p');
+    p.textContent = line; box.appendChild(p);
+    await sleep(120); p.classList.add('on');
+    /* 写了 at 的音效跟着它那一句一起响，比如第一章那声电铃 */
+    if(CH1.exitSnd && CH1.exitSnd.at === line) oneShot(CH1.exitSnd.src, CH1.exitSnd.vol);
+    await sleep(1700);
+  }
+  await sleep(600);
+  const CN = ['一','二','三','四','五','六'];
+  const nxt = CHAPTERS[state.chapter + 1];
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<p class="on" style="margin-top:4vh;color:#C8A24A;letter-spacing:.42em">第' + CN[state.chapter] + '章 完</p>' +
+    (nxt ? '<p class="on" style="font-size:clamp(14px,2vh,18px);color:rgba(232,223,204,.55)">' +
+           '下一章 · ' + nxt.name.replace(/^第.章 · /, '') + '（' + nxt.year + '）</p>' : '');
+  box.appendChild(wrap);
+  await sleep(900);
+  const btns = document.createElement('div');
+  btns.style.cssText = 'display:flex;gap:14px;justify-content:center;margin-top:4vh;flex-wrap:wrap';
+  btns.innerHTML =
+    (nxt ? '<button class="mbtn p" id="eNext">下 一 章</button>' : '') +
+    '<button class="mbtn" id="eBoard">看 证 据 板</button>' +
+    '<button class="mbtn" id="eMap">回 到 档 案 室</button>' +
+    '<button class="mbtn" id="eReplay">重 玩 本 章</button>';
+  box.appendChild(btns);
+  if(nxt) btns.querySelector('#eNext').onclick = async e => {
+    e.stopPropagation();
+    $('#end').classList.remove('on');
+    await runChapter(state.chapter + 1, false);
+  };
+  btns.querySelector('#eMap').onclick    = e => { e.stopPropagation(); backToMap(); };
+  btns.querySelector('#eBoard').onclick  = e => { e.stopPropagation(); openBoard(); };
+  btns.querySelector('#eReplay').onclick = async e => {
+    e.stopPropagation(); $('#end').classList.remove('on');
+    await runChapter(state.chapter, false);
+  };
+  state.busy = false; B.classList.remove('busy');
+}
+
+/* ===================== 证据板 ===================== */
+function openBoard(){
+  const slots = $('#slots');
+  slots.innerHTML = '';
+  EVIDENCE.forEach((e, i) => {
+    const has = state.collected.includes(e.id);
+    const d = document.createElement('div');
+    d.className = 'slot' + (has ? ' has' : '');
+    d.innerHTML =
+      `<img src="${has ? e.img : CH1.cardEmpty}" alt="">` +
+      `<div class="no">${has ? '物证' + (i+1) : (e.locked || '未收集')}</div>`;
+    if(has) d.onclick = () => showDetail(e);
+    slots.appendChild(d);
+  });
+  showDetail(EVIDENCE.find(e => state.collected.includes(e.id)) || null);
+  $('#board').classList.add('on');
+  B.classList.add('boardopen');
+  SFX.click();
+}
+function closeBoard(){
+  $('#board').classList.remove('on');
+  B.classList.remove('boardopen');
+}
+function showDetail(e){
+  $('#detail').innerHTML = e
+    ? `<b>${e.title}</b><span class="y">${e.year}</span><q>${e.quote}</q><span>${e.desc}</span>`
+    : '<span style="opacity:.5">还没有收集到任何物证。</span>';
+}
+
+/* ===================== 文档页 ===================== */
+const DOCS = {
+  idea: `<h3>创 意 说 明</h3>
+    <h4>循迹者是什么</h4>
+    <p>循迹者能沿着文物留下的痕迹，站到它走过的某一段路上，但改变不了任何事。
+    他拦不住那笔交易，也夺不回那只木箱。他只能带走一样东西，就是证据。</p>
+    <p>文物追索在现实中依靠的正是证据链：出土地、著录、来源、
+    每一次转手的记录。抢不回来，证明它本该在哪里，才是唯一走得通的路。</p>
+    <div class="rule"></div>
+    <h4>为什么是长沙子弹库战国楚帛书</h4>
+    <p>它是目前所见年代最早的帛书，1942 年在长沙子弹库出土，1946 年被带走，
+    三卷至今只回来两卷。一桩没有结案的事，比一桩已经了结的事更值得做成游戏，
+    因为玩家走完全程之后，那个空展位还在那儿。</p>
+    <div class="rule"></div>
+    <h4>关于真实性</h4>
+    <p>本作依据史实创作。人物对白、部分信件与文书内容为合理虚构，非史料原文，
+    具体虚构之处在证据板的「史实与虚构」里逐条列出。</p>`,
+
+  howto: `<h3>玩 法 说 明</h3>
+    <ul>
+      <li>在场景里点击可以互动的物件。当前该点的那一件会有极轻微的呼吸光晕。</li>
+      <li>点错顺序不会失败，只会提示你先做别的事。点空白处会浮出一句心里话。</li>
+      <li>右下角“证据板”随时可以打开，回看已经收集到的物证。</li>
+      <li>进度会自动保存，也可以随时点“存档”。下次打开在主视觉点“点击进入游戏”接着玩。</li>
+      <li>追索图上亮着的那一桩可以进；右侧可以随时打开证据板和文物图鉴。</li>
+    </ul>
+    <div class="rule"></div>
+    <h4>快捷键</h4>
+    <p>D 键显示热区框，美术与程序对位时用。</p>`,
+
+  fiction: `<h3>史实与虚构 · 楚帛书案</h3>
+    <h4>有据可依</h4>
+    <ul>
+      <li>1942 年，楚帛书在长沙子弹库楚墓被盗掘出土，此后归蔡季襄收藏、修复与研究，
+      他据此写成《晚周缯书考证》。</li>
+      <li>1946 年，美国人柯强以拍摄红外照片为由取走帛书，运往美国。</li>
+      <li>此后三卷帛书被拆分流散，蔡季襄曾去信柯强主张权利，该信实物存世。
+      第二章展开的那封，文字即依此信释读。</li>
+      <li>2024 年，装帛书的原装木盒盒盖归还中方。</li>
+      <li>2025 年 5 月 18 日，《五行令》《攻守占》两卷返还中国。</li>
+      <li>《四时令》至今仍未归国。</li>
+    </ul>
+    <div class="rule"></div>
+    <h4>属于虚构</h4>
+    <ul>
+      <li>循迹者这一身份，以及档案整理员沿时间线收集物证的整个叙事框架。</li>
+      <li>游戏中全部人物对白。柯强与助手在库房里的那段谈话，是依据帛书此后被拆分流散的
+      结果反推出来的，没有直接的史料记载。</li>
+      <li>第一章蔡季襄写给助手的那封信。目前公开的史料里没有发现这封信，
+      内容是依据他当时的处境拟写的。</li>
+      <li>第三章的码头托运单，以及各章出现的标签与编号。</li>
+      <li>第四章把 1949 年那一段归并在哈佛福格博物馆库房，把柯强处置三卷的时间点定在
+      1949 年秋；2024 年那一段设在芝加哥大学图书馆。帛书抵美之后的实际存放机构与流转过程
+      比这复杂，这里为叙事作了简化。</li>
+      <li>夏德安在库房里移交盒盖的场景。盒盖归还确有其事，具体的交接过程为虚构。</li>
+      <li>第五章设在 2025 年 7 月的中国国家博物馆展厅。两卷返还确有其事，
+      展出的时间与展陈方式是为叙事需要所设。</li>
+    </ul>`
+};
+
+function openDoc(k){
+  $('#docSheet').innerHTML = DOCS[k] + '<button class="close" id="docClose">关 闭</button>';
+  $('#doc').classList.add('on');
+  $('#docClose').onclick = () => $('#doc').classList.remove('on');
+  SFX.click();
+}
+
+
+/* ===================== 文物图鉴 ===================== */
+const CX = { cat:'全部', pick:0 };
+function cxList(){
+  return (typeof RELICS === 'undefined' ? [] : RELICS)
+    .filter(r => CX.cat === '全部' || r.cat === CX.cat);
+}
+function buildCodex(){
+  $('#cxSub').textContent = (typeof GAME !== 'undefined' && GAME.title) ? GAME.title : '';
+  const ORDER = ['青铜器', '石刻', '建筑构件', '古籍文献'];   // 新稿的页签顺序
+  const have = [...new Set((typeof RELICS==='undefined'?[]:RELICS).map(r => r.cat))];
+  const cats = ['全部',
+    ...ORDER.filter(c => have.includes(c)),
+    ...have.filter(c => !ORDER.includes(c))];
+  const tabs = $('#cxTabs');
+  tabs.innerHTML = '';
+  cats.forEach(c => {
+    const b = document.createElement('button');
+    b.textContent = c;
+    b.classList.toggle('on', c === CX.cat);
+    b.onclick = () => { CX.cat = c; CX.pick = 0; CX.page = 0; buildCodex(); SFX.click(); };
+    tabs.appendChild(b);
+  });
+
+  const list = cxList();
+  const PER = 8;                                   // 一页八格，跟新稿的四列两行对齐
+  const pages = Math.max(1, Math.ceil(list.length / PER));
+  if(CX.page == null) CX.page = 0;
+  CX.page = Math.min(Math.max(0, CX.page), pages - 1);
+  if(CX.pick < CX.page * PER || CX.pick >= (CX.page + 1) * PER) CX.page = Math.floor(CX.pick / PER);
+
+  const grid = $('#cxGrid');
+  grid.innerHTML = '';
+  list.slice(CX.page * PER, CX.page * PER + PER).forEach((r, k) => {
+    const i = CX.page * PER + k;
+    const d = document.createElement('div');
+    d.className = 'cxCard' + (i === CX.pick ? ' on' : '');
+    /* 编号不再自己画，缩略图上本来就印着一个，画两遍会重影 */
+    d.innerHTML = `<div class="th">${r.img ? `<img src="${r.img}" alt="">` : '<div class="ph">待补图</div>'}</div>
+      <div class="nm">${r.name}</div>`;
+    d.onclick = () => { CX.pick = i; buildCodex(); SFX.click(); };
+    grid.appendChild(d);
+  });
+  $('#cxPage').textContent = (CX.page + 1) + ' / ' + pages;
+  $('#cxPrev').disabled = CX.page === 0;
+  $('#cxNext').disabled = CX.page >= pages - 1;
+  $('#cxPrev').onclick = () => { if(CX.page > 0){ CX.page--; buildCodex(); SFX.click(); } };
+  $('#cxNext').onclick = () => { if(CX.page < pages - 1){ CX.page++; buildCodex(); SFX.click(); } };
+
+  const r = list[CX.pick];
+  if(!r){ $('#cxName').textContent = ''; return; }
+  const big = r.hero || r.img;   // 有大图就用大图，没有就退回缩略图
+  $('#cxHero').innerHTML = big ? `<img src="${big}" alt="">` : '<div class="ph">待补图</div>';
+  $('#cxName').textContent = r.name;
+  const eraTodo = r.era.startsWith('?');   // 待核的字段标红，提醒别当成品发出去
+  $('#cxMeta').innerHTML =
+    `<span${eraTodo ? ' class="todo"' : ''}>时代：${r.era.replace(/^\?/, '')}</span>` +
+    `<span>类别：${r.cat}</span>`;
+  if(r.desc){ $('#cxDesc').textContent = r.desc; $('#cxDesc').classList.remove('todo'); }
+  else { $('#cxDesc').textContent = '文物描述待补'; $('#cxDesc').classList.add('todo'); }
+  $('#cxSteps').innerHTML = (r.flow || []).map(s =>
+      `<span class="${s.startsWith('?') ? 'todo' : ''}">${s.replace(/^\?/, '')}</span>`)
+    .join('<span class="arw">→</span>');
+}
+function openCodex(){ buildCodex(); $('#codex').classList.add('on'); SFX.click(); }
+function closeCodex(){ $('#codex').classList.remove('on'); }
+
+/* ===================== 地图选章 ===================== */
+function clearedChapters(){
+  const s = readSave();
+  return (s && Array.isArray(s.cleared)) ? s.cleared : [];
+}
+/* 通关过就一直是已结案，哪怕现在正在重打第一章 */
+function caseFinished(){
+  const s = readSave();
+  return !!(s && (s.finished || (Array.isArray(s.cleared) && s.cleared.includes(6))));
+}
+/* 一桩案子打到第几章了 */
+function caseProgress(id){
+  if(id !== 'boshu') return 0;
+  return clearedChapters().length;
+}
+function buildMap(){
+  const canvas = $('#mapCanvas');
+  $('#mapHead h2').textContent = CASES.title;
+  $('#mapHead .sub').textContent = CASES.hint;
+  canvas.querySelectorAll('.mapNode').forEach(n => n.remove());
+  $('#mapSvg').innerHTML = '';
+
+  CASES.items.forEach(c => {
+    const prog = caseProgress(c.id);
+    const allDone = (c.id === 'boshu' && caseFinished())
+                 || (c.chapters > 0 && prog >= c.chapters);
+    const el = document.createElement('div');
+    el.className = 'mapNode' + (c.playable ? ' open' : '') + (allDone ? ' done' : '');
+    /* 新版底图给了宽高，就按矩形铺；老数据只有中心点，退回原来的定位方式 */
+    el.style.cssText = (c.w && c.h)
+      ? `left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%`
+      : `left:${c.x}%;top:${c.y}%`;
+    const state = !c.playable ? '未开放'
+                : allDone     ? '已结案'
+                : prog > 0    ? `${prog}/${c.chapters} 章`
+                              : '待追索';
+    const meta = c.playable
+      ? `${c.route}<br>${c.span}　共 ${c.chapters} 章`
+      : '案卷尚未整理';
+    el.innerHTML =
+      `<div class="cState">${state}</div>` +
+      `<div class="cName">${c.name}</div>` +
+      `<div class="cSub">${c.sub}</div>` +
+      `<div class="cMeta">${meta}</div>`;
+    if(c.playable) el.onclick = () => enterCase(c.id);
+    canvas.appendChild(el);
+  });
+}
+function openMap(){
+  buildMap();
+  $('#map').classList.add('on');
+  $('#menu').classList.add('off');
+  SFX.click();
+}
+function closeMap(){ $('#map').classList.remove('on'); }
+
+/* 每章挑一张能代表它的场景图当封面 */
+const CH_COVER = ['assets/scene_study_lit.jpg', 'assets/scene_office_front.jpg',
+                  'assets/pv1.jpg', 'assets/vault_1946.jpg',
+                  'assets/news_wide.jpg', 'assets/hall_ch6.jpg'];
+
+function openChapterSelect(){
+  const grid = $('#chGrid');
+  grid.innerHTML = '';
+  CHAPTERS.forEach((ch, i) => {
+    const d = document.createElement('div');
+    d.className = 'chCard';
+    const nm = ch.name.replace(/^第.章\s*·\s*/, '');
+    d.innerHTML = `<img src="${CH_COVER[i]}" alt="">` +
+      `<span class="no">${String(i + 1).padStart(2, '0')}</span>` +
+      `<div class="body"><div class="nm">${nm}</div><div class="yr">${ch.year}</div></div>`;
+    d.onclick = () => pickChapter(i);
+    grid.appendChild(d);
+  });
+  $('#chsel').classList.add('on');
+  SFX.click();
+}
+function closeChapterSelect(){ $('#chsel').classList.remove('on'); }
+
+/* 直接跳进第 n 章（0 起）。前面几章的物证按已收算，证据板才不会是空的 */
+async function pickChapter(n){
+  closeChapterSelect();
+  state.collected = EVIDENCE.filter(e => e.ch <= n).map(e => e.id);
+  state.cleared   = [];
+  for(let k = 1; k <= n; k++) state.cleared.push(k);
+  state.finished  = true;         // 通关记录留着，回地图还是「已结案」
+  saveGame(true);
+  await runChapter(n, false);
+}
+
+async function enterCase(id){
+  if(id !== 'boshu'){ toast('这桩案子还没开放'); return; }
+  closeMap();
+  const s = readSave();
+  if(!(s && s.started)){                       // 头一回打
+    state.collected = []; state.cleared = [];
+    await runChapter(0, true);
+    return;
+  }
+  state.collected = s.collected || [];
+  state.cleared   = Array.isArray(s.cleared) ? s.cleared : [];
+  state.finished  = !!s.finished || state.cleared.includes(6);
+  if(state.cleared.includes(6)){               // 上一轮打完了，这次让他自己挑章
+    openChapterSelect();
+    return;
+  }
+  const n  = Math.min(s.chapter || 0, CHAPTERS.length - 1);
+  const ch = CHAPTERS[n];
+  if(s.step >= ch.steps.length){                // 上次正好把那一章打完，接着开下一章
+    await runChapter(Math.min(n + 1, CHAPTERS.length - 1), false);
+    return;
+  }
+  await resumeGame(true);                       // 打到一半，回到停下的地方
+}
+
+/* ===================== 流程 ===================== */
+async function playLines(scrId, boxId, lines, hold = 1600){
+  const scr = $('#' + scrId), box = $('#' + boxId);
+  box.innerHTML = '';
+  scr.classList.toggle('para', lines.length > 1);   // 一行是题记，多行是场景交代
+  scr.classList.add('on');
+  for(const line of lines){
+    const p = document.createElement('p');
+    p.textContent = line;
+    box.appendChild(p);
+    await sleep(100);
+    p.classList.add('on');
+    await sleep(hold);
+  }
+  await waitClick(scr);
+  SFX.click();
+  scr.classList.remove('on');
+}
+
+/* 开场：世界观引入。每屏逐行浮现，点击进下一屏，可整段跳过。 */
+async function playWorld(){
+  const w = $('#world'), box = $('#worldBox'), trace = $('#worldTrace');
+  box.innerHTML = '';
+  trace.style.width = '0';
+  w.classList.add('on');
+  let skipped = false;
+  const skip = e => { e.stopPropagation(); skipped = true; };
+  $('#worldSkip').onclick = skip;
+
+  for(let i = 0; i < WORLD.length && !skipped; i++){
+    box.innerHTML = '';
+    const ps = WORLD[i].map(t => {
+      const p = document.createElement('p');
+      p.textContent = t; box.appendChild(p); return p;
+    });
+    for(const p of ps){
+      if(skipped) break;
+      await sleep(90); p.classList.add('on');
+      await sleep(1150);
+    }
+    if(skipped) break;
+    trace.style.width = Math.round((i + 1) / WORLD.length * 46) + 'vw';
+    // 停一拍，其间点画面可以直接进下一屏
+    await Promise.race([sleep(1700), waitClick(w)]);
+    if(skipped) break;
+    ps.forEach(p => { p.classList.remove('on'); p.classList.add('out'); });
+    await sleep(600);
+  }
+  w.classList.remove('on');
+  await sleep(400);
+}
+
+
+/* 这一章用哪种转场，在 CH1.transition 里写 */
+async function doTransition(){
+  const t = CH1.transition || 'flash';
+  B.classList.add('tr-' + t);
+  const f = $('#flash');
+  if(t === 'shutter'){            // 快门：亮一下，暗一下，再亮
+    f.classList.add('on');  await sleep(120);
+    f.classList.remove('on'); await sleep(90);
+    f.classList.add('on');  await sleep(160);
+    SFX.flash ? SFX.flash() : SFX.glow();
+  }else if(t === 'fog'){          // 雾：慢慢涨上来
+    f.classList.add('on'); await sleep(1700);
+  }else if(t === 'sepia'){        // 旧照片：先褪色再压过去
+    $('#bg').style.filter = $('#bg2').style.filter = 'saturate(.2) contrast(1.1)';
+    await sleep(900);
+    f.classList.add('on'); await sleep(1200);
+    $('#bg').style.filter = $('#bg2').style.filter = '';
+  }else if(t === 'dim'){          // 暗转：灯一盏盏灭
+    f.classList.add('on'); await sleep(1600);
+  }else if(t === 'glass'){        // 玻璃：一道反光扫过去
+    f.classList.add('on'); await sleep(1100);
+  }else{
+    f.classList.add('on'); await sleep(500);
+  }
+  return async () => {            // 收场
+    f.classList.remove('on');
+    await sleep(t === 'fog' ? 1600 : t === 'dim' ? 1400 : 700);
+    B.classList.remove('tr-' + t);
+  };
+}
+
+/* 2026 库房 → 亲手触碰那卷仿制帛书 → 穿越 */
+async function playCrossing(){
+  const cross = $('#cross'), box = $('#crossLines'), hot = $('#relicHot');
+  box.innerHTML = '';
+  $('#crossBg').src = CH1.storage;
+  $('#relicA').src = CH1.relic.dim;
+  $('#relicB').src = CH1.relic.lit;
+  const h = CH1.relicHot;
+  hot.style.cssText = `left:${h.x}%;top:${h.y}%;width:${h.w}%;height:${h.h}%`;
+  hot.classList.remove('on');
+  $('#relicTip').classList.remove('on');
+  $('#relicShot').classList.remove('on','two');
+  cross.classList.remove('zoom');
+  cross.classList.add('on');
+  await sleep(60);
+  cross.classList.add('lit');                   // 库房淡入
+  await sleep(1600);
+
+  for(const line of CH1.prologue){
+    const p = document.createElement('p');
+    p.textContent = line;
+    box.appendChild(p);
+    await sleep(100); p.classList.add('on');
+    await sleep(1500);
+  }
+  await sleep(500);
+  hot.classList.add('on');                      // 那卷帛书亮起呼吸光
+  await sleep(900);
+  $('#relicTip').textContent = CH1.touchPrompt;
+  $('#relicTip').classList.add('on');
+
+  await waitClick(hot);                         // 必须玩家亲手去碰
+  SFX.click();
+  $('#relicTip').classList.remove('on');
+  hot.classList.remove('on');
+  cross.classList.add('zoom');                  // 镜头向它推近
+
+  $('#relicShot').classList.add('on');          // 切近看它亮起来
+  await sleep(800);
+  $('#relicShot').classList.add('two');
+  SFX.warp();
+  await sleep(1500);
+
+  $('#burst').classList.add('on');              // 光从中心炸开
+  await sleep(1200);
+  const closeTr = await doTransition();          // 这一章自己的转场
+  cross.classList.remove('on','lit','zoom');
+  $('#relicShot').classList.remove('on','two');
+  $('#burst').classList.remove('on');
+  await sleep(300);
+  await closeTr();
+  await sleep(400);
+}
+
+async function enterScene(announce){
+  $('#hudCh').textContent = CH1.name + ' · ' + CH1.year;
+  $('#hudNum').textContent = state.collected.length;
+  const curtained = !B.classList.contains('inscene');
+  await setBg(sceneBg(), curtained ? 0 : 1200);
+  if(state.lit) B.classList.add('lit');
+  if(curtained){ B.classList.add('inscene'); await sleep(1100); }
+  await sleep(300);
+  if(announce) await os(CH1.introTip || '一盏油灯。屋子里只有它还亮着。', 2400);
+  const cur = CH1.steps[state.step];
+  if(cur) tip(cur.hotspot === 'lamp' ? '太暗了。先把灯挑亮。' : '继续找线索');
+  refreshTargets();
+}
+
+/* 主视觉上的开始追索。第一次进先看世界观，之后直接进地图。 */
+async function startGame(){
+  const seen = readSave();
+  if(seen && !confirm('重新开始会清掉当前进度，确定吗？')) return;
+  if(seen){ clearSave(); state.cleared = []; state.collected = []; state.step = 0; }
+  SFX.click();
+  $('#menu').classList.add('off');
+  await playWorld();  // 第一次开局先把「循迹者是什么」讲清楚
+  openMap();
+}
+
+/* 开始某一章。first 为真时才走穿越那段，后面的章直接接上 */
+async function runChapter(n, first){
+  finishing = false;
+  stopWatch();
+  BGM.stop(700); AMB.stop(700); BG2.stop(700);
+  // 上一章可能留着结束屏、特写、信纸这些浮层，开新章前一律收掉
+  ['#end','#epi','#cross','#world','#dlg','#cu','#lt','#unf','#pv','#fin','#board','#doc']
+    .forEach(sel => { const el = $(sel); if(el) el.classList.remove('on','two','open','done','show','lit','zoom'); });
+  $('#burst').classList.remove('on');
+  $('#flash').classList.remove('on');
+  // 开场这一段场景热区必须是死的，否则玩家能在穿越和章引之间把第一步先点掉，
+  // 等到 playIntro 演完才放开
+  state.busy = true; B.classList.add('busy');
+  useChapter(n);
+  $('#hudCh').textContent = CH1.name + ' · ' + CH1.year;   // 跳章时别还挂着上一章的名字
+  state.started = true;
+  state.step = 0;
+  B.classList.remove('inscene', 'lit');
+  $('#hudNum').textContent = state.collected.length;
+  if(CH1.amb) AMB.play(CH1.amb.src, { vol: CH1.amb.vol == null ? 1 : CH1.amb.vol,
+                                      loopFrom: CH1.amb.loopFrom, fade: 2200 });
+  if(CH1.bgm) BGM.play(CH1.bgm.src, { from: CH1.bgm.from || 0, vol: CH1.bgm.vol,
+                                      loopFrom: CH1.bgm.loopFrom, once: CH1.bgm.once, fade: 2600 });
+  stopLyrics();
+  if(CH1.lyrics) startLyrics(CH1.lyrics);   // 歌词整章跟着曲子走
+  if(first) await playCrossing();
+  else      await playChapterCard();
+  await playLines('epi', 'epiBox', [CH1.epigraph], 2100);
+  buildHotspots();
+  if(CH1.isPV){                     // 这一章是过场，没有可点的东西
+    await playIntro();
+    await playPV();
+    if(CH1.reveals && CH1.reveals.waybill) await revealLetter('waybill');
+    state.busy = false; B.classList.remove('busy');
+    await finishChapter();
+    return;
+  }
+  await playIntro();
+  state.busy = false; B.classList.remove('busy');
+  await enterScene(true);
+}
+/* 续档进来时，把这一章此刻本该响着的东西补上。
+   已经走过的步骤里若换过曲子，接最后那一首，不从章头的底噪重来。 */
+function armChapterAudio(){
+  let spec = null;
+  for(let i = 0; i < state.step && i < CH1.steps.length; i++){
+    const st = CH1.steps[i];
+    if(st.bgm || st.bgmOnDialogue) spec = st.bgm || st.bgmOnDialogue;
+    if(st.bgmStop || (st.after && st.after.bgmStop)) spec = null;   // 这一步已经把曲子收了，别再放回来
+  }
+  if(CH1.amb && !(spec && !spec.keepAmb))
+    AMB.play(CH1.amb.src, { vol: CH1.amb.vol == null ? 1 : CH1.amb.vol,
+                            loopFrom: CH1.amb.loopFrom, fade: 2200 });
+  const bgm = spec || CH1.bgm;
+  if(bgm)
+    BGM.play(bgm.src, { from: bgm.from || 0, vol: bgm.vol,
+                        loopFrom: bgm.loopFrom, fade: 2600 });
+}
+
+/* 第二章往后不再重放穿越，用一张黑场字卡交代时间地点 */
+async function playChapterCard(){
+  B.classList.remove('inscene');
+  if(CH1.enterSfx && SFX[CH1.enterSfx]) SFX[CH1.enterSfx]();
+  if(CH1.enterSnd) oneShot(CH1.enterSnd.src, CH1.enterSnd.vol);
+  await sleep(500);
+  await playLines('epi', 'epiBox', CH1.prologue, 1700);
+}
+
+/* 落地 1943：他抬起头，像看见了你 */
+async function playIntro(){
+  $('#hudCh').textContent = CH1.name + ' · ' + CH1.year;
+  B.classList.add('busy');
+  await setBg(CH1.cutin, 0);        // 幕后摆好镜头
+  await sleep(120);
+  B.classList.add('inscene');       // 拉幕：从黑场淡入蔡季襄
+  await sleep(1200);
+  await dialogue(CH1.intro);
+  await setBg(CH1.bgDim, 1100);
+  B.classList.remove('busy');
+}
+
+function showMenu(){
+  $('#mResume').classList.toggle('hide', !readSave());
+  $('#mResume').textContent = '重 新 开 始';
+  $('#menu').classList.remove('off');
+  SFX.click();
+}
+
+async function resumeGame(fromMap){
+  // 菜单只是叠在当前这一局上面，点继续就退回去接着玩
+  if(state.started && !fromMap){
+    $('#menu').classList.add('off');
+    SFX.click();
+    return;
+  }
+  const s = readSave();
+  if(!s) return startGame();
+  finishing = false;
+  state.started = true;
+  useChapter(Math.min(s.chapter || 0, CHAPTERS.length - 1));
+  state.step = s.step; state.collected = s.collected || [];
+  state.lit = !!s.lit; state.cleared = s.cleared || [];
+  state.era = s.era ?? state.era;
+  state.facingBack = !!s.facingBack;
+  if(state.era === 'boxes') CH1.boxesBg = 'assets/threeboxes.jpg';
+  SFX.click();
+  $('#menu').classList.add('off');
+  buildHotspots();
+  await enterScene(false);
+  toast('回到上次的地方');
+  armChapterAudio();
+  const cur = CH1.steps[state.step];
+  if(cur && cur.auto) runStep(cur);
+  else if(!cur) finishChapter();
+}
+
+/* ---------- 初始化 ---------- */
+function init(){
+  // 不预先给底层挂图：世界观、库房、章引这些过场之间只会露出黑幕
+  $('#hudCh').textContent = CH1.name + ' · ' + CH1.year;
+  buildHotspots();
+
+  state.cleared = clearedChapters();
+  state.finished = caseFinished();
+  if(readSave()){
+    $('#mResume').classList.remove('hide');
+    $('#mResume').textContent = '重 新 开 始';
+  }else{
+    $('#mResume').textContent = '重 新 开 始';
+  }
+
+  /* 画面上那行“点击进入游戏”是主按钮：有存档直接续，没有就从头开 */
+  $('#mStart').onclick = () => {
+    if(readSave()){ $('#menu').classList.add('off'); openMap(); }
+    else startGame();
+  };
+  $('#mResume').onclick = () => startGame();
+  $('#mapBoard').onclick = openBoard;
+  $('#mapCodex').onclick = openCodex;
+  $('#mapSet').onclick   = () => { $('#btnSound').click(); };
+  $('#mapHome').onclick  = () => { closeMap(); $('#menu').classList.remove('off'); SFX.click(); };
+  $('#chBack').onclick   = () => { closeChapterSelect(); openMap(); };
+  $('#chAll').onclick    = () => pickChapter(0);
+  $('#mResume').classList.toggle('hide', !readSave());
+  $('#mTitle').textContent = GAME.title;
+  $('#mChap').textContent  = GAME.chip || '第一案 · 帛书';
+  $('#mSub').textContent   = GAME.sub;
+  document.title = GAME.title + ' · ' + CH1.name.replace(/^第.章 · /, '');
+  $('#mArchive').onclick = () => openDoc('idea');    // 创意说明
+  $('#mAbout').onclick   = () => openDoc('howto');   // 玩法说明
+  $('#mSetting').onclick = () => { $('#btnSound').click(); };
+  $('#cxBack').onclick   = closeCodex;
+  $('#btnBoard').onclick = openBoard;
+  $('#btnSave').onclick  = () => saveGame(false);
+  $('#boardFic').onclick   = () => openDoc('fiction');
+  $('#boardClose').onclick = closeBoard;
+  $('#btnMenu').onclick = () => { saveGame(true); backToMap(); };
+  $('#btnSound').onclick = () => {
+    const on = SFX.toggle();
+    $('#btnSound').textContent = '音效 ' + (on ? '开' : '关');
+  };
+
+  $('#hot').addEventListener('click', async () => {
+    if(state.busy || !state.started) return;
+    state.busy = true; B.classList.add('busy');
+    SFX.click();
+    await os(CH1.idle[Math.floor(Math.random() * CH1.idle.length)], 1800);
+    state.busy = false; B.classList.remove('busy');
+  });
+
+  document.addEventListener('keydown', e => {
+    if(e.key === 'd' || e.key === 'D') B.classList.toggle('debug');
+    if(e.key === 'Escape'){ closeBoard(); $('#doc').classList.remove('on'); }
+  });
+
+  const pre = [CH1.bgDim, CH1.bgLit, CH1.cutin, CH1.avatar, CH1.storage, CH1.relic.dim, CH1.relic.lit,
+    ...Object.values(CH1.unfurls || {}).map(u => u.img),
+    (CH1.ending && CH1.ending.lastShot && CH1.ending.lastShot.img),
+    ...CH1.steps.flatMap(st => st.closeup ? st.closeup.imgs : []),
+    ...Object.values(CH1.reveals).map(r => r.img),
+    ...EVIDENCE.filter(e => e.img).map(e => e.img)];
+  pre.forEach(u => { const i = new Image(); i.src = u; });
+}
+init();
+</script>
+</body>
+</html>
