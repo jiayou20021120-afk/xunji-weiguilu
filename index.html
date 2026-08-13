@@ -736,7 +736,7 @@ body.tr-glass #flash{
   border-color:rgba(120,86,44,.85)}
 
 /* ---------- 手机竖屏时提示横过来。舞台是 16:9 的，竖屏只剩中间一条 ---------- */
-#rotate{position:fixed;inset:0;z-index:200;display:none;background:#0B0806;
+#rotate{position:absolute;inset:0;z-index:200;display:none;background:#0B0806;
   align-items:center;justify-content:center;flex-direction:column;gap:2.6vh;
   color:var(--paper);text-align:center;padding:0 10vw}
 #rotate .ic{font-size:14vw;color:var(--gold);line-height:1;
@@ -745,8 +745,18 @@ body.tr-glass #flash{
 #rotate .t1{font-size:clamp(16px,4.8vw,24px);letter-spacing:.28em}
 #rotate .t2{font-size:clamp(12px,3.4vw,16px);letter-spacing:.14em;
   color:rgba(232,223,204,.55);line-height:1.9}
-@media (orientation:portrait){ #rotate{display:flex} }
+/* 微信内置浏览器锁死竖屏，转手机它不会重新布局。
+   所以反过来做：把舞台整个转 90 度，用户把手机转过来就正了。 */
+@media (orientation:portrait) and (max-width:900px){
+  #stage{
+    transform:translate(-50%,-50%) rotate(90deg);
+    width:min(100vh, calc(100vw * 16 / 9));
+    height:min(100vw, calc(100vh * 9 / 16));
+  }
+  #rotate{display:flex}
+}
 @media (min-width:900px){ #rotate{display:none !important} }
+#rotate.gone{display:none !important}
 
 /* ---------- 分章一览：通关之后可以挑任意一章重进 ---------- */
 #chsel{position:absolute;inset:0;z-index:68;display:none;
@@ -809,6 +819,11 @@ body.tr-glass #flash{
 <body>
 
 <div id="stage">
+    <div id="rotate">
+      <div class="ic">▯</div>
+      <div class="t1">请把手机横过来<br><span style="font-size:.72em;letter-spacing:.1em">顶部朝右</span></div>
+      <div class="t2">画面已为你转好<br>手机转过来即可，点一下开始</div>
+    </div>
   <img id="bg"  alt="">
   <img id="bg2" alt="">
   <div id="bloom"></div>
@@ -993,12 +1008,6 @@ body.tr-glass #flash{
         <button class="mbtn p" id="chAll">从 头 连 着 打</button>
       </div>
     </div>
-  </div>
-
-  <div id="rotate">
-    <div class="ic">▯</div>
-    <div class="t1">请把手机横过来</div>
-    <div class="t2">这是一部 16:9 的作品<br>横屏才看得见完整画面</div>
   </div>
 
   <div id="doc"><div class="sheet" id="docSheet"></div></div>
@@ -2487,6 +2496,7 @@ function init(){
   $('#mapBoard').onclick = openBoard;
   $('#mapCodex').onclick = openCodex;
   $('#mapSet').onclick   = () => { $('#btnSound').click(); };
+  $('#rotate').onclick   = e => { e.stopPropagation(); $('#rotate').classList.add('gone'); };
   $('#mapHome').onclick  = () => { closeMap(); $('#menu').classList.remove('off'); SFX.click(); };
   $('#chBack').onclick   = () => { closeChapterSelect(); openMap(); };
   $('#chAll').onclick    = () => pickChapter(0);
